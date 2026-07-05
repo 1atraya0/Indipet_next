@@ -10,6 +10,7 @@
   "dependencies": {
     "lucide": "latest",
     "next": "latest",
+    "pg": "^8.22.0",
     "react": "latest",
     "react-dom": "latest"
   }
