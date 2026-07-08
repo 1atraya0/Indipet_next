@@ -16,6 +16,10 @@ export default function PrototypeRuntime() {
 
     if (document.querySelector('script[data-indipet-runtime="true"]')) return;
 
+    const xlsxScript = document.createElement("script");
+    xlsxScript.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    document.body.appendChild(xlsxScript);
+
     const script = document.createElement("script");
     script.src = "/hrms-runtime.js";
     script.async = false;

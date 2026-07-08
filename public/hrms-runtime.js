@@ -5398,7 +5398,30 @@ const attendanceRecords = [];
         showToast(loc ? `${loc.listName} readiness check completed.` : "No location selected.");
         return;
       }
-      showToast(`${$("#pageTitle").textContent} export prepared.`);
+      if (typeof XLSX === "undefined") {
+        showToast("Export library still loading, please try again.", "error");
+        return;
+      }
+      if (activePage === "dashboard") {
+        const headers = ["Employee", "Location", "Shift", "Check In", "Check Out", "Status"];
+        const rows = attendanceRecords.map(r => [r.name, r.location, r.shift, r.checkIn, r.checkOut, r.status]);
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+        XLSX.writeFile(wb, "Attendance.xlsx");
+        showToast("Attendance exported.");
+        return;
+      }
+      const config = pageConfig[activePage];
+      if (!config || !config.columns || !config.rows) {
+        showToast("Export not available for this view.", "error");
+        return;
+      }
+      const ws = XLSX.utils.aoa_to_sheet([config.columns, ...config.rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, activePage);
+      XLSX.writeFile(wb, `${config.title || activePage}.xlsx`);
+      showToast(`${config.title} exported.`);
     });
     $("#columnButton").addEventListener("click", () => showToast("Column preferences opened for this table."));
     $("#profileButton").addEventListener("click", () => showToast("Signed in as HR & Operations Admin."));
