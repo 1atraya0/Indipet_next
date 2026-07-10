@@ -54,6 +54,16 @@ export async function GET(request) {
     );
     const shifts = shiftResult.rows;
 
+    const hoursResult = await query(
+      `SELECT day_of_week, is_open FROM location_operating_hours WHERE location_id = $1`,
+      [Number(locationId)]
+    );
+    const operatingDays = {};
+    for (const row of hoursResult.rows) {
+      operatingDays[row.day_of_week] = row.is_open === true || row.is_open === "true";
+    }
+    const hasOperatingHours = hoursResult.rows.length > 0;
+
     const holidayResult = await query(
       `SELECT * FROM holiday_calendar
        WHERE (location_id = $1 OR location_id IS NULL)
@@ -124,11 +134,12 @@ export async function GET(request) {
     const allocation = {};
     const coverage = {};
     const validation = [];
+    const lastShiftType = {};
 
     for (const dateObj of dates) {
       const dateIso = dateObj.iso;
       const holiday = holidayMap[dateIso];
-      const isStoreClosed = holiday && holiday.is_closed === true;
+      const isStoreClosed = (holiday && holiday.is_closed === true) || (hasOperatingHours && operatingDays[dateObj.dayOfWeek] === false);
       const dow = dateObj.dayOfWeek;
 
       if (!coverage[dateIso]) {
@@ -207,8 +218,22 @@ export async function GET(request) {
       for (const emp of available) {
         const empId = emp.employee_id;
         let assignedShift = null;
+        const isRotational = emp.shift_preference_mode === "Rotational";
 
-        if (emp.default_shift_id && shifts.length > 0) {
+        if (isRotational && shifts.length > 1) {
+          const prevType = lastShiftType[empId];
+          const diffShiftCaps = shiftCapacities.filter(sc => {
+            const s = shifts.find(si => si.policy_id === sc.policy_id);
+            return s && s.shift_type !== prevType && sc.allocated < sc.sanctioned;
+          });
+          if (diffShiftCaps.length > 0) {
+            const sorted = [...diffShiftCaps].sort((a, b) => (a.allocated / a.sanctioned) - (b.allocated / b.sanctioned));
+            assignedShift = shifts.find(s => s.policy_id === sorted[0].policy_id);
+            if (assignedShift) sorted[0].allocated++;
+          }
+        }
+
+        if (!assignedShift && emp.default_shift_id && shifts.length > 0) {
           const matched = shifts.find(s => s.policy_id === Number(emp.default_shift_id));
           if (matched) {
             const cap = shiftCapacities.find(sc => sc.policy_id === matched.policy_id);
@@ -233,6 +258,7 @@ export async function GET(request) {
         }
 
         if (assignedShift) {
+          lastShiftType[empId] = assignedShift.shift_type;
           allocation[empId][dateIso] = {
             shift: assignedShift.policy_name,
             shiftType: assignedShift.shift_type,

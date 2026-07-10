@@ -4,7 +4,7 @@ export async function GET() {
   try {
     const result = await query(
       `SELECT d.designation_id, d.designation_code, d.designation_name,
-        d.department_id, dep.department_name,
+        d.department_id, dep.department_code, dep.department_name,
         d.grade_code, d.override_grade_code,
         d.is_keyholder_eligible, d.is_salesperson_eligible, d.status
        FROM designation_master d

@@ -6,7 +6,7 @@ export async function PATCH(request, { params }) {
     const body = await request.json();
 
     const allowed = [
-      "role_code", "role_name", "permissions", "status", "location_id"
+      "role_code", "role_name", "permissions", "status", "location_id", "entity_role"
     ];
 
     const sets = [];

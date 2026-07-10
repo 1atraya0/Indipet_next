@@ -25,11 +25,14 @@ export async function GET(request) {
     sql += ` ORDER BY r.created_at DESC`;
 
     const result = await query(sql, params);
+    const fmtIso = d => d instanceof Date ? d.toISOString().split("T")[0] : String(d).split("T")[0];
     const rows = result.rows.map(r => ({
       rosterId: String(r.roster_id),
       locationId: String(r.location_id),
       locationName: r.brand_flag || r.location_name,
       period: `${formatDate(r.start_date)} \u2013 ${formatDate(r.end_date)}`,
+      startDate: fmtIso(r.start_date),
+      endDate: fmtIso(r.end_date),
       version: r.version,
       status: r.status,
       filled: r.filled_slots,

@@ -1,5 +1,10 @@
 import { query } from "@/src/lib/db";
 
+const safeNumber = v => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
 export async function GET() {
   try {
     const result = await query(
@@ -26,14 +31,22 @@ export async function POST(request) {
     const end = new Date(body.end_date);
     const duration = body.duration_days || Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
 
+    const empId = safeNumber(body.employee_id);
+    const ltId = safeNumber(body.leave_type_id);
+    const approvedBy = safeNumber(body.approved_by);
+
+    if (empId === null || ltId === null) {
+      return Response.json({ message: "Invalid employee_id or leave_type_id." }, { status: 400 });
+    }
+
     const result = await query(
       `INSERT INTO leave_requests (employee_id, leave_type_id, start_date, end_date,
         duration_days, reason, status, applied_on, approved_by, approved_on, period)
        VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE,$8,$9,$10) RETURNING *`,
-      [Number(body.employee_id), Number(body.leave_type_id),
+      [empId, ltId,
        body.start_date, body.end_date, duration,
        body.reason || null, body.status || "pending",
-       body.approved_by ? Number(body.approved_by) : null,
+       approvedBy,
        body.approved_on || null, body.period || null]
     );
     return Response.json(result.rows[0], { status: 201 });

@@ -3175,6 +3175,56 @@
       padding: 14px 18px;
     }
 
+    .modal.roster-export-modal {
+      width: min(600px, 100%);
+      max-height: calc(100vh - 40px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .roster-export-modal .modal-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 14px 18px;
+    }
+
+    .roster-export-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .roster-export-item:hover {
+      background: var(--surface-hover);
+    }
+
+    .roster-export-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+    }
+
+    .roster-export-location {
+      flex: 1;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .roster-export-period {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .roster-export-version {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: monospace;
+    }
+
     .modal-progress {
       margin: 4px 0 0;
       color: var(--primary);
@@ -3573,32 +3623,195 @@
       border-radius: 8px;
     }
 
-    .roster-cell-editor {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-      font-size: 11px;
-      border: 2px solid #3b82f6;
-      border-radius: 6px;
+    .picker-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background: transparent;
+    }
+
+    .roster-cell-picker {
+      position: fixed;
+      z-index: 9999;
+      min-width: 220px;
+      max-width: 300px;
       background: #fff;
-      cursor: pointer;
-      opacity: 0.95;
-      padding: 2px;
-      appearance: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06);
+      padding: 8px;
+      font-size: 12px;
+      animation: picker-fade-in 0.15s ease-out;
     }
 
-    .roster-cell-editor optgroup {
-      font-size: 10px;
+    @keyframes picker-fade-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .roster-cell-picker .picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 6px 10px 6px;
+      border-bottom: 1px solid #f1f5f9;
+      margin-bottom: 6px;
+    }
+
+    .roster-cell-picker .picker-header strong {
+      font-size: 12px;
       font-weight: 600;
-      color: #6b7280;
+      color: #1e293b;
+      line-height: 1.3;
     }
 
-    .roster-cell-editor option {
+    .roster-cell-picker .picker-header .picker-date {
+      font-size: 10px;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    .roster-cell-picker .picker-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #94a3b8;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .roster-cell-picker .picker-close:hover {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .roster-cell-picker .picker-section-label {
+      font-size: 9.5px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 6px 3px;
+    }
+
+    .roster-cell-picker .picker-shift-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 10px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      text-align: left;
+      color: #1e293b;
+      transition: background 0.1s;
+    }
+
+    .roster-cell-picker .picker-shift-option:hover {
+      background: #f1f5f9;
+    }
+
+    .roster-cell-picker .picker-shift-option .shift-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .roster-cell-picker .picker-shift-option .shift-dot.dot-blue { background: #3b82f6; }
+    .roster-cell-picker .picker-shift-option .shift-dot.dot-green { background: #22c55e; }
+    .roster-cell-picker .picker-shift-option .shift-dot.dot-amber { background: #f59e0b; }
+    .roster-cell-picker .picker-shift-option .shift-dot.dot-purple { background: #a855f7; }
+    .roster-cell-picker .picker-shift-option .shift-dot.dot-rose { background: #e11d48; }
+    .roster-cell-picker .picker-shift-option .shift-dot.dot-cyan { background: #06b6d4; }
+
+    .roster-cell-picker .picker-shift-option .shift-info {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .roster-cell-picker .picker-shift-option .shift-info .shift-name {
+      font-weight: 500;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .roster-cell-picker .picker-shift-option .shift-info .shift-time {
+      font-size: 10px;
+      color: #94a3b8;
+    }
+
+    .roster-cell-picker .picker-shift-option .shift-star {
+      font-size: 10px;
+      color: #f59e0b;
+      flex-shrink: 0;
+    }
+
+    .roster-cell-picker .picker-divider {
+      height: 1px;
+      background: #f1f5f9;
+      margin: 4px 0;
+    }
+
+    .roster-cell-picker .picker-action-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 10px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      text-align: left;
+      color: #475569;
+      transition: background 0.1s;
+    }
+
+    .roster-cell-picker .picker-action-option:hover {
+      background: #f1f5f9;
+    }
+
+    .roster-cell-picker .picker-action-option .action-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 11px;
-      padding: 2px 4px;
+      flex-shrink: 0;
+    }
+
+    .roster-cell-picker .picker-action-option .action-icon.icon-wo {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    .roster-cell-picker .picker-action-option .action-icon.icon-leave {
+      background: #fff1e8;
+      color: #ea580c;
+    }
+
+    .roster-cell-picker .picker-action-option .action-icon.icon-open {
+      background: #fff7ed;
+      color: #d97706;
     }
 
     .roster-panels {

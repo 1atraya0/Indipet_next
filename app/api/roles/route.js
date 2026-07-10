@@ -1,11 +1,18 @@
 import { query } from "@/src/lib/db";
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const result = await query(
-      `SELECT role_id, role_code, role_name, permissions, status, location_id
-       FROM role_master ORDER BY role_name`
-    );
+    const { searchParams } = new URL(request.url);
+    const entityRole = searchParams.get("entity_role");
+    let sql = `SELECT role_id, role_code, role_name, permissions, status, location_id, entity_role
+               FROM role_master`;
+    const params = [];
+    if (entityRole) {
+      sql += ` WHERE entity_role IS NULL OR entity_role = $1`;
+      params.push(entityRole);
+    }
+    sql += ` ORDER BY role_name`;
+    const result = await query(sql, params);
     return Response.json(result.rows);
   } catch (error) {
     return Response.json({ message: error.message }, { status: 500 });
@@ -36,14 +43,15 @@ export async function POST(request) {
     const permissions = body.permissions || null;
 
     const result = await query(
-      `INSERT INTO role_master (role_code, role_name, permissions, status, location_id)
-       VALUES ($1,$2,$3,$4,$5)
+      `INSERT INTO role_master (role_code, role_name, permissions, status, location_id, entity_role)
+       VALUES ($1,$2,$3,$4,$5,$6)
        RETURNING *`,
       [
         roleCode, body.role_name,
         permissions ? JSON.stringify(permissions) : null,
         body.status || "Active",
-        body.location_id ? Number(body.location_id) : null
+        body.location_id ? Number(body.location_id) : null,
+        body.entity_role || null
       ]
     );
 

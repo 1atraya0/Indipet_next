@@ -51,6 +51,7 @@ export async function GET() {
 
     const records = attendanceResult.rows.map(r => ({
       id: r.employee_code,
+      attendance_id: r.attendance_id,
       name: `${r.first_name} ${r.last_name}`,
       initials: ((r.first_name || "")[0] || "") + ((r.last_name || "")[0] || ""),
       location: r.location_name || `Location ${r.location_id}`,

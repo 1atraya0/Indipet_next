@@ -2,7 +2,8 @@ import "./globals.css";
 
 export const metadata = {
   title: "Indipet HRMS Command Center",
-  description: "Indipet HRMS operations and workforce command center"
+  description: "Indipet HRMS operations and workforce command center",
+  icons: { icon: "/logo.png" },
 };
 
 export default function RootLayout({ children }) {

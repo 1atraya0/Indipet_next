@@ -23,14 +23,13 @@ export async function GET(request, { params }) {
     }
 
     const entry = postOffice[0];
-    const cities = [...new Set(postOffice.map(p => p.Name).filter(Boolean))];
     const districts = [...new Set(postOffice.map(p => p.District).filter(Boolean))];
     const state = entry.State || null;
     const stateCode = getStateCode(state);
 
     return Response.json({
       pincode,
-      cities: cities.length > 0 ? cities : districts,
+      cities: districts,
       state,
       state_code: stateCode,
     });

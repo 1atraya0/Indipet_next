@@ -2,9 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import PrototypeRuntime from "@/components/PrototypeRuntime";
 
-export const dynamic = "force-static";
-
-export default function HomePage() {
+export default function HomePage({ params }) {
+  const slug = params?.slug ? params.slug.join("/") : "";
   const markup = fs.readFileSync(
     path.join(process.cwd(), "src", "prototype", "hrms-markup.html"),
     "utf8"
@@ -17,7 +16,7 @@ export default function HomePage() {
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: markup }}
       />
-      <PrototypeRuntime />
+      <PrototypeRuntime initialSlug={slug} />
     </>
   );
 }

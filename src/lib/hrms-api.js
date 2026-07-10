@@ -73,7 +73,14 @@ export const hrmsApi = {
     list: query => listResource("locations", query),
     create: record => createResource("locations", record),
     update: (id, record) => updateResource("locations", id, record),
-    operatingHours: locationId => listResource(`locations/${encodeURIComponent(locationId)}/operating-hours`),
+    operatingHours: {
+      list: locationId => listResource(`locations/${encodeURIComponent(locationId)}/operating-hours`),
+      save: (locationId, records) =>
+        request(`/locations/${encodeURIComponent(locationId)}/operating-hours`, {
+          method: "PUT",
+          body: JSON.stringify({ records })
+        })
+    },
     shiftPolicies: locationId => listResource("shift-policies", { location_id: locationId })
   },
   employees: {

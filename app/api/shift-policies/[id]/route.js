@@ -23,6 +23,17 @@ export async function PATCH(request, { params }) {
       }
     }
 
+    if (body.primary_keyholder_id !== undefined) {
+      const val = body.primary_keyholder_id ? Number(body.primary_keyholder_id) : null;
+      sets.push(`primary_keyholder_id = $${idx++}`);
+      values.push(val);
+    }
+    if (body.backup_keyholder_id !== undefined) {
+      const val = body.backup_keyholder_id ? Number(body.backup_keyholder_id) : null;
+      sets.push(`backup_keyholder_id = $${idx++}`);
+      values.push(val);
+    }
+
     if (sets.length === 0) {
       return Response.json({ message: "No valid fields to update." }, { status: 400 });
     }

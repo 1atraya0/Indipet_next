@@ -1,18 +1,51 @@
 import { query } from "@/src/lib/db";
 
+const safeNumber = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+
+const EMPLOYEE_JOINS = `
+  LEFT JOIN parent_entity pe ON e.parent_entity_id = pe.entity_id
+  LEFT JOIN sub_location sl ON e.location_id = sl.location_id
+  LEFT JOIN department_master dep ON e.department_id = dep.department_id
+  LEFT JOIN designation_master des ON e.designation_id = des.designation_id
+  LEFT JOIN employee_profile ep ON e.employee_id = ep.employee_id
+  LEFT JOIN employee_address ea ON e.employee_id = ea.employee_id
+  LEFT JOIN employee_emergency_contact eec ON e.employee_id = eec.employee_id
+  LEFT JOIN employee_statutory es ON e.employee_id = es.employee_id
+  LEFT JOIN employee_finance ef ON e.employee_id = ef.employee_id
+  LEFT JOIN employee_documents ed ON e.employee_id = ed.employee_id
+  LEFT JOIN employee_skills esk ON e.employee_id = esk.employee_id
+`;
+
+const EMPLOYEE_COLS = `
+    e.*,
+    pe.entity_code, pe.legal_name AS entity_name,
+    sl.location_name, sl.location_code,
+    dep.department_name, dep.department_short_code,
+    des.designation_name, des.designation_code,
+    ep.date_of_birth, ep.blood_group, ep.marital_status, ep.nationality,
+    ep.father_name AS guardian_name, ep.spouse_name,
+    ea.present_address_line1 AS present_address, ea.present_city AS address_city,
+    ea.present_state AS address_state, ea.present_pincode AS address_pincode,
+    ea.same_address AS same_as_present,
+    ea.permanent_address_line1 AS permanent_address,
+    ea.permanent_city, ea.permanent_state, ea.permanent_pincode,
+    eec.contact_name AS emergency_contact_name, eec.relationship AS emergency_relationship,
+    eec.phone AS emergency_phone, eec.alternate_phone AS emergency_alt_phone,
+    eec.address AS emergency_address,
+    es.aadhaar_number, es.pan_number, es.uan_number, es.pf_number, es.esi_number,
+    es.nominee_name,
+    ef.bank_name, ef.bank_branch AS branch_name, ef.account_number, ef.ifsc_code,
+    ef.bank_verification_status,
+    ed.document_type, ed.document_number, ed.document_status,
+    esk.skill_name AS primary_skill, esk.skill_level
+`;
+
 export async function GET() {
   try {
     const result = await query(
-      `SELECT e.*,
-        pe.entity_code, pe.legal_name AS entity_name,
-        sl.location_name, sl.location_code,
-        dep.department_name, dep.department_short_code,
-        des.designation_name, des.designation_code
+      `SELECT ${EMPLOYEE_COLS}
        FROM employee_master e
-       LEFT JOIN parent_entity pe ON e.parent_entity_id = pe.entity_id
-       LEFT JOIN sub_location sl ON e.location_id = sl.location_id
-       LEFT JOIN department_master dep ON e.department_id = dep.department_id
-       LEFT JOIN designation_master des ON e.designation_id = des.designation_id
+       ${EMPLOYEE_JOINS}
        ORDER BY e.first_name, e.last_name`
     );
     return Response.json(result.rows);
@@ -29,16 +62,22 @@ export async function POST(request) {
       return Response.json({ message: "first_name and last_name are required." }, { status: 400 });
     }
 
-    const entityResult = await query(
-      `SELECT entity_code, legal_name FROM parent_entity WHERE entity_id = $1`,
-      [Number(body.parent_entity_id)]
-    );
+    const entityId = safeNumber(body.parent_entity_id);
+    const entityResult = entityId
+      ? await query(
+          `SELECT entity_code, legal_name FROM parent_entity WHERE entity_id = $1`,
+          [entityId]
+        ).catch(() => ({ rows: [] }))
+      : { rows: [] };
     const entityCode = entityResult.rows[0]?.entity_code || "UNKNOWN";
 
-    const locationResult = await query(
-      `SELECT location_name, location_code FROM sub_location WHERE location_id = $1`,
-      [Number(body.location_id)]
-    );
+    const locId = safeNumber(body.location_id);
+    const locationResult = locId
+      ? await query(
+          `SELECT location_name, location_code FROM sub_location WHERE location_id = $1`,
+          [locId]
+        ).catch(() => ({ rows: [] }))
+      : { rows: [] };
     const locationAbbrev = locationResult.rows[0]?.location_code
       ? locationResult.rows[0].location_code.replace(/^[A-Z]+/, "").slice(0, 4)
       : (locationResult.rows[0]?.location_name || "XX").replace(/[^A-Z]/g, "").slice(0, 4);
@@ -57,19 +96,19 @@ export async function POST(request) {
     const phone = body.phone || null;
     const email = body.email || null;
     const loginId = body.login_id || null;
-    const roleId = body.role_id ? Number(body.role_id) : null;
+    const roleId = safeNumber(body.role_id);
     const isSalesperson = body.is_salesperson === true || body.is_salesperson === "true";
     const faceRegistered = body.face_registered === true || body.face_registered === "true";
-    const departmentId = body.department_id ? Number(body.department_id) : null;
-    const designationId = body.designation_id ? Number(body.designation_id) : null;
-    const locationId = body.location_id ? Number(body.location_id) : null;
-    const parentEntityId = body.parent_entity_id ? Number(body.parent_entity_id) : null;
-    const reportingManagerId = body.reporting_manager_id ? Number(body.reporting_manager_id) : null;
+    const departmentId = safeNumber(body.department_id);
+    const designationId = safeNumber(body.designation_id);
+    const locationId = safeNumber(body.location_id);
+    const parentEntityId = safeNumber(body.parent_entity_id);
+    const reportingManagerId = safeNumber(body.reporting_manager_id);
     const employeeCategory = body.employee_category || null;
     const isReportingManager = body.is_reporting_manager_eligible === true || body.is_reporting_manager_eligible === "true";
-    const defaultShiftId = body.default_shift_id ? Number(body.default_shift_id) : null;
+    const defaultShiftId = safeNumber(body.default_shift_id);
     const shiftPreferenceMode = body.shift_preference_mode || null;
-    const preferredWeeklyOffDay = body.preferred_week_off_day ? Number(body.preferred_week_off_day) : null;
+    const preferredWeeklyOffDay = safeNumber(body.preferred_week_off_day);
 
     const empResult = await query(
       `INSERT INTO employee_master (employee_code, employee_type, employment_subtype,
@@ -109,15 +148,19 @@ export async function POST(request) {
       const sameAddress = body.same_as_present === true || body.same_as_present === "true";
       await query(
         `INSERT INTO employee_address (employee_id, present_address_line1, present_city,
-          present_state, present_pincode, same_address, permanent_address_line1)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          present_state, present_pincode, same_address,
+          permanent_address_line1, permanent_city, permanent_state, permanent_pincode)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [employeeId,
          body.present_address || null,
          body.address_city || null,
          body.address_state || null,
          body.address_pincode || null,
          sameAddress,
-         body.permanent_address || null]
+         body.permanent_address || null,
+         body.permanent_city || null,
+         body.permanent_state || null,
+         body.permanent_pincode || null]
       );
     }
 
@@ -196,16 +239,9 @@ export async function POST(request) {
     }
 
     const fullResult = await query(
-      `SELECT e.*,
-        pe.entity_code, pe.legal_name AS entity_name,
-        sl.location_name, sl.location_code,
-        dep.department_name, dep.department_short_code,
-        des.designation_name, des.designation_code
+      `SELECT ${EMPLOYEE_COLS}
        FROM employee_master e
-       LEFT JOIN parent_entity pe ON e.parent_entity_id = pe.entity_id
-       LEFT JOIN sub_location sl ON e.location_id = sl.location_id
-       LEFT JOIN department_master dep ON e.department_id = dep.department_id
-       LEFT JOIN designation_master des ON e.designation_id = des.designation_id
+       ${EMPLOYEE_JOINS}
        WHERE e.employee_id = $1`,
       [employeeId]
     );

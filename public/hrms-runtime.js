@@ -1,4 +1,54 @@
 /* Migrated from hrms_dashboard_nav_visual.html. */
+const FRIENDLY_SLUGS = {
+  "entity-master": "organization",
+  "sub-location": "locations",
+  "department-master": "departments",
+  "designation-master": "designations",
+  "role-manager": "roles",
+  "employee-master": "employees",
+  "leave-requests": "leave-requests",
+  "leave-type-master": "leave-types",
+  "leave-policy": "leave-policies",
+  "attendance-list": "attendance",
+  "payroll-period": "payroll",
+  "system-settings": "settings",
+  "policy-variants": "policy-variants",
+  "policy-assignments": "policy-assignments",
+  "holiday-calendar": "holiday-calendar",
+  "regularization": "regularization",
+  "shift-exceptions": "shift-exceptions",
+  "co-ledger": "co-ledger",
+  "attendance-reports": "attendance-reports",
+  "roster": "roster",
+  "support": "support",
+};
+function pageSlug(pageKey) { return FRIENDLY_SLUGS[pageKey] || pageKey; }
+function slugPage(slug) {
+  for (const [key, val] of Object.entries(FRIENDLY_SLUGS)) {
+    if (val === slug) return key;
+  }
+  return slug;
+}
+const FORM_PARENT = {
+  "entity-master-form": "entity-master",
+  "employee-master-form": "employee-master",
+  "sub-location-form": "sub-location",
+  "department-master-form": "department-master",
+  "designation-master-form": "designation-master",
+  "role-manager-form": "role-manager",
+  "leave-type-master-form": "leave-type-master",
+  "leave-policy-form": "leave-policy",
+  "policy-variants-form": "policy-variants",
+  "policy-assignments-form": "policy-assignments",
+  "holiday-calendar-form": "holiday-calendar",
+  "leave-requests-form": "leave-requests",
+  "attendance-form": "attendance-list",
+  "regularization-form": "regularization",
+  "shift-exceptions-form": "shift-exceptions",
+  "co-ledger-form": "co-ledger",
+  "attendance-reports-form": "attendance-reports",
+};
+
 const attendanceRecords = [];
     let employeeMasterData = [];
     let entityMasterData = [];
@@ -215,6 +265,41 @@ const attendanceRecords = [];
 
     function refreshIcons() {
       if (window.lucide) lucide.createIcons();
+    }
+
+    function syncPageURL(pageKey, formAction, formId) {
+      let slug;
+      if (pageKey.endsWith("-form")) {
+        const parent = FORM_PARENT[pageKey];
+        if (!parent) return;
+        slug = pageSlug(parent);
+      } else {
+        slug = pageKey === "dashboard" ? "" : pageSlug(pageKey);
+      }
+      const navigate = (path) => {
+        const current = window.location.pathname;
+        window.history[current === path ? "replaceState" : "pushState"]({ pageKey, formAction, formId }, "", path);
+      };
+      if (!slug) { navigate("/"); return; }
+      let path = "/" + slug;
+      if (formAction) path += "/" + formAction;
+      if (formId != null) path += "/" + formId;
+      navigate(path);
+    }
+
+    function parsePath(pathname) {
+      const parts = pathname.replace(/^\/+/, "").split("/").filter(Boolean);
+      const [primary, action, id] = parts;
+      if (!primary) return { pageKey: "dashboard", action: null, id: null };
+      const pageKey = slugPage(primary);
+      return { pageKey, action: action || null, id: id || null };
+    }
+
+    function getFormAction(pageKey) {
+      if (!pageKey.endsWith("-form")) return null;
+      const parent = FORM_PARENT[pageKey];
+      const field = document.querySelector(`#${parent}FormView [data-id-field], #${parent}FormView [name="id"], #${parent}FormView [data-field="id"]`);
+      return field && field.value ? "edit" : "new";
     }
 
     function renderWeeklyChart(multiplier = 1) {
@@ -484,6 +569,9 @@ const attendanceRecords = [];
         <button class="roster-tab ${rosterControlTab === "overview" ? "is-active" : ""}" data-roster-control-tab="overview" type="button">
           <i data-lucide="layout-dashboard"></i>Overview
         </button>
+        <button class="roster-tab ${rosterControlTab === "draft" ? "is-active" : ""}" data-roster-control-tab="draft" type="button">
+          <i data-lucide="file-text"></i>Draft Rosters
+        </button>
         <button class="roster-tab ${rosterControlTab === "published" ? "is-active" : ""}" data-roster-control-tab="published" type="button">
           <i data-lucide="circle-check"></i>Published Rosters
         </button>`;
@@ -501,6 +589,10 @@ const attendanceRecords = [];
       module.classList.add("roster-control-view");
       renderRosterTabBar();
 
+      if (rosterControlTab === "draft") {
+        await renderRosterDraftRosters();
+        return;
+      }
       if (rosterControlTab === "published") {
         await renderRosterPublishedRosters();
         return;
@@ -605,74 +697,60 @@ const attendanceRecords = [];
       refreshIcons();
     }
 
-    async function renderRosterPublishedRosters() {
+    function renderRosterTable(list, title, subtitle, emptyMsg, actionHtmlFn) {
       const module = $("#moduleView");
       const filterBar = $(".filter-bar", module);
       if (filterBar) {
         filterBar.innerHTML = "";
         filterBar.style.display = "none";
       }
-      $(".table-wrap", module).classList.remove("roster-board-table-wrap");
-      $("#columnButton").style.display = "none";
-      $(".pagination", module).style.display = "none";
-
-      const api = window.IndipetHRMS?.api;
-      if (api) {
-        try {
-          publishedRosters = await api.rosters.list();
-        } catch (err) {
-          console.error("Failed to fetch published rosters from server:", err);
+      const tw = $(".table-wrap", module);
+      if (tw) {
+        tw.classList.remove("roster-board-table-wrap");
+        if (!$("#moduleTableHead")) {
+          tw.innerHTML = `
+            <table>
+              <thead id="moduleTableHead"></thead>
+              <tbody id="moduleTableBody"></tbody>
+            </table>
+            <div class="empty-state" id="moduleEmpty">
+              <i data-lucide="inbox"></i>
+              <div class="empty-title">No matching records</div>
+              <div class="empty-copy">Try changing the current filters.</div>
+            </div>
+          `;
         }
       }
-      const published = publishedRosters.slice();
+      $("#columnButton") && ($("#columnButton").style.display = "none");
+      $(".pagination", module) && ($(".pagination", module).style.display = "none");
 
-      $("#moduleSummary").innerHTML = `
-        <article class="card summary-card roster-summary-card">
-          <span class="roster-summary-icon green"><i data-lucide="circle-check"></i></span>
-          <div>
-            <div class="summary-label">Published Rosters</div>
-            <div class="summary-value">${published.length}</div>
-            <div class="summary-note">${published.length ? `${published.length} roster${published.length > 1 ? "s" : ""} currently published` : "No rosters published yet"}</div>
-          </div>
-        </article>
-        <article class="card summary-card roster-summary-card">
-          <span class="roster-summary-icon blue"><i data-lucide="history"></i></span>
-          <div>
-            <div class="summary-label">Superseded</div>
-            <div class="summary-value">${publishedRosters.filter(r => r.status === "Superseded").length}</div>
-            <div class="summary-note">Older versions replaced by newer publishes</div>
-          </div>
-        </article>
-      `;
-
-      $("#moduleTableTitle").textContent = "Published Rosters";
-      $("#moduleTableSubtitle").textContent = "View and edit published rosters for any location and period.";
-      $("#moduleTableHead").innerHTML = `
+      $("#moduleTableTitle") && ($("#moduleTableTitle").textContent = title);
+      $("#moduleTableSubtitle") && ($("#moduleTableSubtitle").textContent = subtitle);
+      $("#moduleTableHead") && ($("#moduleTableHead").innerHTML = `
         <tr>
           <th>Location</th><th>Roster Period</th><th>Version</th><th>Status</th>
           <th>Filled Slots</th><th>Open Slots</th><th>Conflicts</th><th>Published On</th><th class="action-cell">Actions</th>
-        </tr>`;
+        </tr>`);
 
-      if (published.length === 0) {
-        $("#moduleTableBody").innerHTML = `
+      if (list.length === 0) {
+        if ($("#moduleTableBody")) $("#moduleTableBody").innerHTML = `
           <tr>
             <td colspan="9">
               <div class="roster-panel-empty">
                 <i data-lucide="file-text"></i>
-                <span>No published rosters yet</span>
-                <small>Generate and publish a roster from the Overview tab to see it here.</small>
+                <span>${emptyMsg}</span>
               </div>
             </td>
           </tr>`;
-        $("#moduleEmpty").classList.add("is-visible");
-        $("#moduleTableBody").closest("table").style.display = "table";
+        if ($("#moduleEmpty")) $("#moduleEmpty").classList.add("is-visible");
+        if ($("#moduleTableBody")) $("#moduleTableBody").closest("table").style.display = "table";
         const mc0 = $("#moduleCount");
         if (mc0) mc0.textContent = "0";
         refreshIcons();
         return;
       }
 
-      $("#moduleTableBody").innerHTML = published.map(record => `
+      if ($("#moduleTableBody")) $("#moduleTableBody").innerHTML = list.map(record => `
         <tr data-roster-id="${record.rosterId}" data-location-id="${record.locationId}">
           <td><span class="roster-location-name">${record.locationName}</span><span class="roster-location-code">${record.locationId}</span></td>
           <td>${record.period}</td>
@@ -682,18 +760,91 @@ const attendanceRecords = [];
           <td><span class="badge ${record.open ? "amber" : "grey"} roster-count-chip">${record.open}</span></td>
           <td><span class="badge ${record.conflicts ? "red" : "grey"} roster-count-chip">${record.conflicts}</span></td>
           <td>${record.updated}</td>
-          <td class="action-cell roster-action-cell">
-            <button class="button roster-published-view" data-roster-view="${record.rosterId}" data-roster-location="${record.locationId}" type="button"><i data-lucide="eye"></i>View</button>
-            <button class="button primary roster-published-edit" data-roster-view="${record.rosterId}" data-roster-location="${record.locationId}" type="button"><i data-lucide="pencil"></i>Edit</button>
-          </td>
+          <td class="action-cell roster-action-cell">${actionHtmlFn(record)}</td>
         </tr>
       `).join("");
 
-      $("#moduleEmpty").classList.remove("is-visible");
-      $("#moduleTableBody").closest("table").style.display = "table";
+      if ($("#moduleEmpty")) $("#moduleEmpty").classList.remove("is-visible");
+      if ($("#moduleTableBody")) $("#moduleTableBody").closest("table").style.display = "table";
       const mc1 = $("#moduleCount");
-      if (mc1) mc1.textContent = published.length;
+      if (mc1) mc1.textContent = list.length;
       refreshIcons();
+    }
+
+    async function renderRosterPublishedRosters() {
+      const api = window.IndipetHRMS?.api;
+      if (api) {
+        try {
+          publishedRosters = await api.rosters.list();
+        } catch (err) {
+          console.error("Failed to fetch published rosters from server:", err);
+        }
+      }
+      const filtered = publishedRosters.filter(r => r.status === "Published" || r.status === "Superseded");
+
+      if ($("#moduleSummary")) $("#moduleSummary").innerHTML = `
+        <article class="card summary-card roster-summary-card">
+          <span class="roster-summary-icon green"><i data-lucide="circle-check"></i></span>
+          <div>
+            <div class="summary-label">Published Rosters</div>
+            <div class="summary-value">${filtered.filter(r => r.status === "Published").length}</div>
+            <div class="summary-note">${filtered.length ? `${filtered.length} roster${filtered.length > 1 ? "s" : ""}` : "No rosters published yet"}</div>
+          </div>
+        </article>
+        <article class="card summary-card roster-summary-card">
+          <span class="roster-summary-icon blue"><i data-lucide="history"></i></span>
+          <div>
+            <div class="summary-label">Superseded</div>
+            <div class="summary-value">${filtered.filter(r => r.status === "Superseded").length}</div>
+            <div class="summary-note">Older versions replaced by newer publishes</div>
+          </div>
+        </article>
+      `;
+
+      renderRosterTable(
+        filtered,
+        "Published Rosters",
+        "View and edit published rosters for any location and period.",
+        "No published rosters yet. Generate and publish a roster from the Overview tab to see it here.",
+        record => `
+          <button class="button roster-published-view" data-roster-view="${record.rosterId}" data-roster-location="${record.locationId}" type="button"><i data-lucide="eye"></i>View</button>
+          <button class="button primary roster-published-edit" data-roster-view="${record.rosterId}" data-roster-location="${record.locationId}" type="button"><i data-lucide="pencil"></i>Edit</button>
+        `
+      );
+    }
+
+    async function renderRosterDraftRosters() {
+      const api = window.IndipetHRMS?.api;
+      if (api) {
+        try {
+          publishedRosters = await api.rosters.list();
+        } catch (err) {
+          console.error("Failed to fetch draft rosters from server:", err);
+        }
+      }
+      const filtered = publishedRosters.filter(r => r.status === "Draft");
+
+      if ($("#moduleSummary")) $("#moduleSummary").innerHTML = `
+        <article class="card summary-card roster-summary-card">
+          <span class="roster-summary-icon amber"><i data-lucide="file-text"></i></span>
+          <div>
+            <div class="summary-label">Draft Rosters</div>
+            <div class="summary-value">${filtered.length}</div>
+            <div class="summary-note">${filtered.length ? `${filtered.length} draft roster${filtered.length > 1 ? "s" : ""} awaiting publish` : "No draft rosters"}</div>
+          </div>
+        </article>
+      `;
+
+      renderRosterTable(
+        filtered,
+        "Draft Rosters",
+        "Review and publish draft rosters for any location and period.",
+        "No draft rosters yet. Generate and save as draft from the Overview tab to create one.",
+        record => `
+          <button class="button roster-published-view" data-roster-view="${record.rosterId}" data-roster-location="${record.locationId}" type="button"><i data-lucide="eye"></i>View</button>
+          <button class="button primary roster-draft-publish" data-roster-view="${record.rosterId}" data-roster-location="${record.locationId}" type="button"><i data-lucide="send"></i>Publish</button>
+        `
+      );
     }
 
     function rosterBoardEmployees(location) {
@@ -760,8 +911,7 @@ const attendanceRecords = [];
       return keyholderEmployees.some(employee =>
         employee.id === employeeId &&
         employee.locationId === locationId &&
-        employee.status === "Active" &&
-        employee.keyholderEligible
+        employee.status === "Active"
       );
     }
 
@@ -819,7 +969,7 @@ const attendanceRecords = [];
       const record = rosterOverviewRecords().find(item => rosterId && item.rosterId === rosterId)
         || rosterOverviewRecords().find(item => item.locationId === locationId)
         || rosterOverviewRecords()[0];
-      const location = subLocations.find(item => item.id === locationId) || subLocations[0];
+      const location = subLocations.find(item => item.id === locationId || String(item.dbId) === String(locationId)) || subLocations[0];
       activePage = "roster-board";
       activeRosterBoardTab = "board";
       $$(".nav-single, .nav-child").forEach(button => button.classList.remove("is-active"));
@@ -842,7 +992,7 @@ const attendanceRecords = [];
     }
 
     async function openRosterBoardPublished(rosterId, locationId) {
-      const location = subLocations.find(item => item.id === locationId) || subLocations[0];
+      const location = subLocations.find(item => item.id === locationId || String(item.dbId) === String(locationId)) || subLocations[0];
       activePage = "roster-board";
       activeRosterBoardTab = "board";
       publishedRosterDirty = false;
@@ -1111,7 +1261,7 @@ const attendanceRecords = [];
           </div>
           <div class="roster-board-toolbar-actions">
             <button class="button" data-roster-board-action="refresh" data-location-id="${location.id}" type="button"><i data-lucide="refresh-cw"></i>Refresh</button>
-            <button class="button primary" data-roster-board-action="save-draft" data-roster-id="${data.rosterId}" data-location-id="${location.id}" type="button"><i data-lucide="save"></i>Save as Draft</button>
+            <button class="button primary" data-roster-board-action="save-draft" data-roster-id="${data.rosterId}" data-location-id="${location.id}" type="button"><i data-lucide="save"></i>Save Published Roster</button>
           </div>
         </div>
       `;
@@ -1256,85 +1406,133 @@ const attendanceRecords = [];
       }
     }
 
+    const shiftDotColors = ["dot-blue", "dot-green", "dot-amber", "dot-purple", "dot-rose", "dot-cyan"];
+
     function renderRosterCellPicker(employeeId, dateIso, cellEl) {
-      const existing = document.querySelector(".roster-cell-editor");
+      const existing = document.querySelector(".roster-cell-editor, .picker-backdrop, .roster-cell-picker");
       if (existing) existing.remove();
       const activeShifts = (currentRosterBoardLocation?.shifts || []).filter(s => s[5] === "Active");
       const empData = (currentPublishedRosterData?.employees || []).find(e => String(e.employee_id) === String(employeeId));
       const defaultShiftId = empData ? Number(empData.default_shift_id) : null;
+      const empName = empData?.name || empData?.employee_name || `Employee #${employeeId}`;
       const rect = cellEl.getBoundingClientRect();
+
+      const formatTime = s => {
+        const st = s[7] || ""; const et = s[8] || "";
+        return st && et ? `${st.substring(0, 5)} - ${et.substring(0, 5)}` : "";
+      };
+
+      const closePicker = () => {
+        const bd = document.querySelector(".picker-backdrop");
+        const pk = document.querySelector(".roster-cell-picker");
+        if (bd) bd.remove();
+        if (pk) pk.remove();
+      };
+
+      const backdrop = document.createElement("div");
+      backdrop.className = "picker-backdrop";
+      backdrop.addEventListener("click", closePicker);
+      document.body.appendChild(backdrop);
+
       const picker = document.createElement("div");
-      picker.className = "roster-cell-editor";
-      const defShift = defaultShiftId ? activeShifts.find(s => Number(s[0]) === defaultShiftId) : null;
-      const otherShifts = defaultShiftId ? activeShifts.filter(s => Number(s[0]) !== defaultShiftId) : activeShifts;
-      const list = document.createElement("div");
-      list.style.cssText = "display:flex;flex-direction:column;gap:1px;";
-      if (defShift) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = (defShift[1] || defShift[0]) + " ★";
-        btn.style.cssText = "display:block;width:100%;text-align:left;padding:3px 6px;border:none;border-radius:3px;background:#eaf4fb;cursor:pointer;font-size:11px;white-space:nowrap;font-weight:600;";
-        btn.addEventListener("mouseenter", () => btn.style.background = "#dbeafe");
-        btn.addEventListener("mouseleave", () => btn.style.background = "#eaf4fb");
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          picker.remove();
-          updatePublishedCellAlloc(employeeId, dateIso, "assigned", defShift[1] || defShift[0]);
+      picker.className = "roster-cell-picker";
+
+      const header = document.createElement("div");
+      header.className = "picker-header";
+      header.innerHTML = `
+        <div>
+          <strong>${empName}</strong>
+          <div class="picker-date">${dateIso}</div>
+        </div>
+        <button type="button" class="picker-close">&times;</button>
+      `;
+      header.querySelector(".picker-close").addEventListener("click", closePicker);
+      picker.appendChild(header);
+
+      const body = document.createElement("div");
+
+      if (activeShifts.length > 0) {
+        const shiftLabel = document.createElement("div");
+        shiftLabel.className = "picker-section-label";
+        shiftLabel.textContent = "Shifts";
+        body.appendChild(shiftLabel);
+
+        const sortedShifts = [...activeShifts].sort((a, b) => {
+          const aIsDef = defaultShiftId && Number(a[0]) === defaultShiftId;
+          const bIsDef = defaultShiftId && Number(b[0]) === defaultShiftId;
+          if (aIsDef && !bIsDef) return -1;
+          if (!aIsDef && bIsDef) return 1;
+          return 0;
         });
-        list.appendChild(btn);
+
+        sortedShifts.forEach((s, i) => {
+          const isDefault = defaultShiftId && Number(s[0]) === defaultShiftId;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "picker-shift-option";
+          const dotColor = shiftDotColors[i % shiftDotColors.length];
+          btn.innerHTML = `
+            <span class="shift-dot ${dotColor}"></span>
+            <span class="shift-info">
+              <span class="shift-name">${s[1] || s[0]}</span>
+              <span class="shift-time">${formatTime(s)}</span>
+            </span>
+            ${isDefault ? '<span class="shift-star">&#9733;</span>' : ""}
+          `;
+          btn.addEventListener("click", () => {
+            closePicker();
+            updatePublishedCellAlloc(employeeId, dateIso, "assigned", s[1] || s[0]);
+          });
+          body.appendChild(btn);
+        });
       }
-      otherShifts.forEach(s => {
+
+      const divider = document.createElement("div");
+      divider.className = "picker-divider";
+      body.appendChild(divider);
+
+      const actionLabel = document.createElement("div");
+      actionLabel.className = "picker-section-label";
+      actionLabel.textContent = "Actions";
+      body.appendChild(actionLabel);
+
+      const actions = [
+        { label: "Weekly Off", value: "wo", icon: "WO", iconClass: "icon-wo" },
+        { label: "Leave", value: "leave", icon: "LV", iconClass: "icon-leave" },
+        { label: "Open Slot", value: "open", icon: "OS", iconClass: "icon-open" },
+      ];
+
+      actions.forEach(opt => {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.textContent = s[1] || s[0];
-        btn.style.cssText = "display:block;width:100%;text-align:left;padding:3px 6px;border:none;border-radius:3px;background:transparent;cursor:pointer;font-size:11px;white-space:nowrap;";
-        btn.addEventListener("mouseenter", () => btn.style.background = "#f3f4f6");
-        btn.addEventListener("mouseleave", () => btn.style.background = "transparent");
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          picker.remove();
-          updatePublishedCellAlloc(employeeId, dateIso, "assigned", s[1] || s[0]);
-        });
-        list.appendChild(btn);
-      });
-      const sep = document.createElement("div");
-      sep.style.cssText = "height:1px;background:#e5e7eb;margin:2px 0;";
-      list.appendChild(sep);
-      [
-        { label: "Weekly Off", value: "wo" },
-        { label: "Leave", value: "leave" },
-        { label: "Open Slot", value: "open" },
-      ].forEach(opt => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = opt.label;
-        btn.style.cssText = "display:block;width:100%;text-align:left;padding:3px 6px;border:none;border-radius:3px;background:transparent;cursor:pointer;font-size:11px;white-space:nowrap;";
-        btn.addEventListener("mouseenter", () => btn.style.background = "#f3f4f6");
-        btn.addEventListener("mouseleave", () => btn.style.background = "transparent");
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          picker.remove();
+        btn.className = "picker-action-option";
+        btn.innerHTML = `
+          <span class="action-icon ${opt.iconClass}">${opt.icon}</span>
+          ${opt.label}
+        `;
+        btn.addEventListener("click", () => {
+          closePicker();
           if (opt.value === "wo") updatePublishedCellAlloc(employeeId, dateIso, "weekly_off", null);
           else if (opt.value === "leave") updatePublishedCellAlloc(employeeId, dateIso, "leave", null);
           else updatePublishedCellAlloc(employeeId, dateIso, "unassigned", null);
         });
-        list.appendChild(btn);
+        body.appendChild(btn);
       });
-      picker.style.cssText = `position:fixed;z-index:9999;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:3px;box-shadow:0 4px 12px rgba(0,0,0,0.12);font-size:11px;width:max-content;max-width:${window.innerWidth - 8}px;`;
-      picker.appendChild(list);
-      let finalLeft = Math.max(4, Math.min(rect.left, window.innerWidth - 140));
-      picker.style.left = `${finalLeft}px`;
-      picker.style.top = `${rect.bottom + 2}px`;
+
+      picker.appendChild(body);
+
       document.body.appendChild(picker);
-      setTimeout(() => {
-        const closer = (ev) => {
-          if (!picker.contains(ev.target)) {
-            picker.remove();
-            document.removeEventListener("click", closer);
-          }
-        };
-        document.addEventListener("click", closer);
-      }, 0);
+
+      const pickerW = picker.offsetWidth;
+      const pickerH = picker.offsetHeight;
+      let left = rect.left;
+      let top = rect.bottom + 4;
+      if (left + pickerW > window.innerWidth - 8) left = window.innerWidth - 8 - pickerW;
+      if (left < 8) left = 8;
+      if (top + pickerH > window.innerHeight - 8) top = rect.top - pickerH - 4;
+      if (top < 8) top = 8;
+      picker.style.left = `${left}px`;
+      picker.style.top = `${top}px`;
     }
 
     function renderModule(pageKey) {
@@ -1404,17 +1602,7 @@ const attendanceRecords = [];
 
     function fallbackShiftForLocation(location) {
       if (!location || location.type === "Head Office") return null;
-      const existing = (location.shifts || []).find(shift => isFallbackShift(shift));
-      if (existing) return existing;
-      return [
-        `${location.id}-OHC`,
-        "Official Hours Coverage",
-        location.officialHours,
-        "1",
-        "Rotational",
-        "Active",
-        "Fallback"
-      ];
+      return (location.shifts || []).find(shift => isFallbackShift(shift)) || null;
     }
 
     function shiftCoverageRole(shift) {
@@ -1702,7 +1890,6 @@ const attendanceRecords = [];
       return keyholderEmployees.filter(employee =>
         employee.locationId === locationId &&
         employee.status === "Active" &&
-        employee.keyholderEligible &&
         employee.id !== excludedEmployeeId
       );
     }
@@ -1710,7 +1897,7 @@ const attendanceRecords = [];
     function renderKeyholderOptions(select, employees, placeholder, selectedValue = "") {
       select.innerHTML = [
         `<option value="">${placeholder}</option>`,
-        ...employees.map(employee => `<option value="${employee.id}" ${employee.id === selectedValue ? "selected" : ""}>${employee.id} - ${employee.name}</option>`)
+        ...employees.map(employee => `<option value="${employee.id}" ${String(employee.id) === selectedValue ? "selected" : ""}>${employee.code} - ${employee.name}</option>`)
       ].join("");
     }
 
@@ -1802,13 +1989,6 @@ const attendanceRecords = [];
     function updateShiftCoverageRoleControls() {
       const role = $("#shiftCoverageRole").value;
       if (role !== "Fallback") return;
-      const officialWindow = getOfficialWindow(getSelectedLocation());
-      if (!$("#shiftPolicyName").value.trim()) {
-        $("#shiftPolicyName").value = "Official Hours Coverage";
-      }
-      if (officialWindow) {
-        setShiftTimeControls(officialWindow.open, officialWindow.close);
-      }
       $("#shiftRequiredStaff").value = "1";
       $("#shiftDailyLeaveLimit").value = "0";
       $("#shiftWeeklyOffPattern").value = "Rotational";
@@ -1906,7 +2086,10 @@ const attendanceRecords = [];
       if (!Number.isInteger(record.sanctioned_strength) || record.sanctioned_strength <= 0) addField("shiftRequiredStaff");
       if (!Number.isInteger(record.max_leave_per_day) || record.max_leave_per_day < 0) addField("shiftDailyLeaveLimit");
       if (!Number.isInteger(record.max_consecutive_days) || record.max_consecutive_days <= 0) addField("shiftMaxConsecutiveDays");
-      if (record.keyholder_required && !record.primary_keyholder_id) addField("shiftPrimaryKeyholder");
+      if (record.keyholder_required && !record.primary_keyholder_id) {
+        const location = getSelectedLocation();
+        if (getKeyholderOptions(location.id).length > 0) addField("shiftPrimaryKeyholder");
+      }
       if (record.weekly_off_pattern === "Fixed" && !record.weekly_off_day) addField("shiftWeeklyOffDay");
       if (record.weekly_off_pattern === "Rotational" && record.weekly_off_day) addField("shiftWeeklyOffDay");
       if (record.keyholder_required && record.backup_keyholder_id && record.backup_keyholder_id === record.primary_keyholder_id) addField("shiftBackupKeyholder");
@@ -1950,22 +2133,53 @@ const attendanceRecords = [];
       return { valid: true };
     }
 
-    function createShiftPolicy(record) {
+    async function createShiftPolicy(record) {
+      const api = window.IndipetHRMS?.api;
       const location = getSelectedLocation();
+
+      let created;
+      try {
+        const results = await api.shiftPolicies.create({
+          location_id: location.dbId,
+          policies: [{
+            policy_name: record.policy_name,
+            shift_type: record.shift_type,
+            coverage_mode: record.coverage_role,
+            shift_start_time: record.shift_start_time,
+            shift_end_time: record.shift_end_time,
+            break_duration_minutes: record.break_duration_minutes,
+            sanctioned_strength: record.sanctioned_strength,
+            max_leave_per_day: record.max_leave_per_day,
+            keyholder_required: record.keyholder_required,
+            primary_keyholder_id: record.primary_keyholder_id || null,
+            backup_keyholder_id: record.backup_keyholder_id || null,
+            weekly_off_pattern: record.weekly_off_pattern,
+            max_consecutive_days: record.max_consecutive_days,
+            policy_status: record.policy_status
+          }]
+        });
+        created = results[0];
+      } catch (err) {
+        showToast(`Failed to create shift policy: ${err.message}`);
+        return;
+      }
       const weeklyOff = record.weekly_off_pattern === "Fixed" ? weekDayLabel(record.weekly_off_day) : "Rotational";
       location.shifts.push([
-        record.policy_id,
-        record.policy_name,
-        formatHourRange(record.shift_start_time, record.shift_end_time),
-        String(record.sanctioned_strength),
+        created.policy_id,
+        created.policy_name,
+        formatHourRange(
+          String(created.shift_start_time || "").substring(0, 5),
+          String(created.shift_end_time || "").substring(0, 5)
+        ),
+        String(created.sanctioned_strength),
         weeklyOff,
-        record.policy_status,
-        record.coverage_role || "Standard"
+        created.policy_status,
+        created.coverage_mode
       ]);
-      location.shiftPolicyRecords = [...(location.shiftPolicyRecords || []), { ...record }];
+      location.shiftPolicyRecords = [...(location.shiftPolicyRecords || []), { ...created }];
       renderLocationTab();
       closeShiftPolicyModal();
-      showToast(`${record.policy_name} created for ${location.listName}.`);
+      showToast(`${created.policy_name} created for ${location.listName}.`);
     }
 
     function isoDateValue(date) {
@@ -2047,6 +2261,29 @@ const attendanceRecords = [];
 
     function closeRosterGenerateModal() {
       $("#rosterGenerateModal").classList.remove("is-open");
+    }
+
+    function openRosterExportModal() {
+      if (publishedRosters.length === 0) {
+        showToast("No published rosters to export.", "error");
+        return;
+      }
+      const list = $("#rosterExportList");
+      list.innerHTML = publishedRosters.map(r => `
+        <label class="roster-export-item">
+          <input type="checkbox" data-roster-id="${r.rosterId}" data-location-id="${r.locationId}" checked>
+          <span class="roster-export-location">${r.locationName}</span>
+          <span class="roster-export-period">${r.period}</span>
+          <span class="roster-export-version">${r.version}</span>
+          <span class="badge ${statusClass[r.status] || "grey"}">${r.status}</span>
+        </label>
+      `).join("");
+      $("#rosterExportModal").classList.add("is-open");
+      refreshIcons();
+    }
+
+    function closeRosterExportModal() {
+      $("#rosterExportModal").classList.remove("is-open");
     }
 
     function collectRosterGenerateSetup() {
@@ -2402,16 +2639,39 @@ const attendanceRecords = [];
       showToast("Unsaved operating-hour changes were discarded.");
     }
 
-    function saveHoursEdit() {
-      const validation = validateOperatingHours(hoursDraft || []);
+    async function saveHoursEdit() {
+      const draft = hoursDraft;
+      if (!draft) {
+        showToast("Nothing to save — no hours in progress.");
+        return;
+      }
+
+      const validation = validateOperatingHours(draft);
       if (!validation.valid) {
         renderLocationTab();
         showToast("Correct the operating-hour warnings before saving.");
         return;
       }
 
+      const api = window.IndipetHRMS?.api;
       const location = getSelectedLocation();
-      location.operatingHoursRecords = hoursDraft.map(row => ({ ...row }));
+      const records = draft.map(row => ({
+        day_of_week: row.dayOfWeek,
+        is_open: row.isOpen,
+        official_open_time: row.officialOpen || null,
+        official_close_time: row.officialClose || null,
+        operational_open_time: row.operationalOpen || null,
+        operational_close_time: row.operationalClose || null
+      }));
+
+      try {
+        await api.locations.operatingHours.save(location.dbId, records);
+      } catch (err) {
+        showToast(`Failed to save operating hours: ${err.message}`);
+        return;
+      }
+
+      location.operatingHoursRecords = draft.map(row => ({ ...row }));
       const firstOpenDay = location.operatingHoursRecords.find(row => row.isOpen);
       location.hoursConfigured = Boolean(firstOpenDay);
       location.officialHours = firstOpenDay
@@ -2426,6 +2686,78 @@ const attendanceRecords = [];
       hoursDraft = null;
       renderLocationTab();
       showToast(`${location.listName} operating hours saved.`);
+    }
+
+    async function openCopyHoursPicker() {
+      const api = window.IndipetHRMS?.api;
+      const location = getSelectedLocation();
+      if (!location) return;
+
+      const sources = subLocations.filter(l =>
+        l.id !== location.id && l.hoursConfigured &&
+        Array.isArray(l.operatingHoursRecords) && l.operatingHoursRecords.length === 7
+      );
+
+      if (sources.length === 0) {
+        showToast("No other locations with configured operating hours available.");
+        return;
+      }
+
+      const pickerId = "copyHoursPicker";
+      const existing = document.getElementById(pickerId);
+      if (existing) existing.remove();
+
+      const picker = document.createElement("div");
+      picker.id = pickerId;
+      picker.className = "copy-hours-picker";
+      picker.style.cssText = "display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;flex-wrap:wrap;";
+
+      const label = document.createElement("span");
+      label.textContent = "Copy from:";
+      label.style.cssText = "font-weight:600;font-size:14px;";
+
+      const select = document.createElement("select");
+      select.id = "copyHoursSource";
+      select.style.cssText = "flex:1;min-width:180px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;background:var(--surface);";
+      sources.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = s.listName;
+        select.appendChild(opt);
+      });
+
+      const applyBtn = document.createElement("button");
+      applyBtn.className = "button primary";
+      applyBtn.textContent = "Apply";
+      applyBtn.addEventListener("click", async () => {
+        const sourceId = select.value;
+        const source = subLocations.find(l => l.id === sourceId);
+        if (!source || !source.operatingHoursRecords) {
+          showToast("Source location has no operating hours configured.");
+          return;
+        }
+
+        if (hoursEditMode) {
+          showToast("Save or cancel the current edit before copying.");
+          return;
+        }
+
+        hoursDraft = source.operatingHoursRecords.map(r => ({ ...r }));
+        await saveHoursEdit();
+      });
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "button";
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.addEventListener("click", () => picker.remove());
+
+      picker.appendChild(label);
+      picker.appendChild(select);
+      picker.appendChild(applyBtn);
+      picker.appendChild(cancelBtn);
+
+      const tabContent = document.getElementById("locationTabContent");
+      tabContent.insertBefore(picker, tabContent.firstChild);
     }
 
     function renderHoursTab(location) {
@@ -2696,7 +3028,7 @@ const attendanceRecords = [];
         primary_keyholder_id: "",
         backup_keyholder_id: "",
         onboarding_status: "",
-        status: "",
+        status: "active",
         shift_policies: []
       };
     }
@@ -2717,18 +3049,26 @@ const attendanceRecords = [];
     function populateLocationForm(record) {
       clearLocationFormError();
       $$("[data-location-field]").forEach(field => {
-        field.value = record[field.dataset.locationField] ?? "";
+        const key = field.dataset.locationField;
+        if (key === "parent_entity_id" && record.parent_entity_code) {
+          field.value = record.parent_entity_code;
+        } else {
+          field.value = record[key] ?? "";
+        }
       });
-      renderShiftPolicyCards(record.shift_policies || []);
       setLocationStep(0);
     }
 
     function collectLocationFormRecord() {
       const record = $$("[data-location-field]").reduce((r, field) => {
-        r[field.dataset.locationField] = field.value.trim();
+        const key = field.dataset.locationField;
+        if (key === "parent_entity_id" && field.selectedOptions?.[0]?.dataset?.entityId) {
+          r[key] = field.selectedOptions[0].dataset.entityId;
+        } else {
+          r[key] = field.value.trim();
+        }
         return r;
       }, {});
-      record.shift_policies = collectShiftPolicies();
       return record;
     }
 
@@ -2916,11 +3256,12 @@ const attendanceRecords = [];
       $("#submitLocationForm").innerHTML = `<i data-lucide="save"></i>${mode === "edit" ? "Save Changes" : "Create Location"}`;
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("sub-location-form", mode === "edit" ? "edit" : "new", editingLocationId);
       refreshIcons();
     }
 
     function setLocationStep(stepIndex) {
-      activeLocationStep = Math.max(0, Math.min(4, stepIndex));
+      activeLocationStep = Math.max(0, Math.min(3, stepIndex));
       $$("#locationStepper [data-location-step]").forEach((step, index) => {
         step.classList.toggle("is-active", index === activeLocationStep);
         step.classList.toggle("is-complete", index < activeLocationStep);
@@ -2929,8 +3270,8 @@ const attendanceRecords = [];
         section.classList.toggle("is-active", index === activeLocationStep);
       });
       $("#backLocationStep").disabled = activeLocationStep === 0;
-      $("#nextLocationStep").hidden = activeLocationStep === 4;
-      $("#submitLocationForm").hidden = activeLocationStep !== 4;
+      $("#nextLocationStep").hidden = activeLocationStep === 3;
+      $("#submitLocationForm").hidden = activeLocationStep !== 3;
       clearLocationFormError();
       refreshIcons();
     }
@@ -3067,6 +3408,7 @@ const attendanceRecords = [];
         roles.forEach(r => {
           const opt = document.createElement("option");
           opt.value = r.role_code || String(r.role_id);
+          opt.dataset.roleId = r.role_id || "";
           opt.textContent = `${r.role_code || r.role_name} - ${r.role_name}`;
           select.appendChild(opt);
         });
@@ -3119,6 +3461,7 @@ const attendanceRecords = [];
           locs.forEach(l => {
             const opt = document.createElement("option");
             opt.value = l.id;
+            opt.dataset.locId = l.dbId || "";
             opt.textContent = `${l.id} - ${l.listName || l.name}`;
             locationSelect.appendChild(opt);
           });
@@ -3152,6 +3495,7 @@ const attendanceRecords = [];
         departments.forEach(d => {
           const opt = document.createElement("option");
           opt.value = d.department_code || String(d.department_id);
+          opt.dataset.deptId = d.department_id || "";
           opt.textContent = `${d.department_code} - ${d.department_name}`;
           select.appendChild(opt);
         });
@@ -3188,9 +3532,10 @@ const attendanceRecords = [];
             d.department_code === deptCode || String(d.department_id) === deptCode
           );
           desigSelect.innerHTML = '<option value="">Select designation</option>';
-          (filtered.length ? filtered : designations).forEach(d => {
+          filtered.forEach(d => {
             const opt = document.createElement("option");
             opt.value = d.designation_code || String(d.designation_id);
+            opt.dataset.desigId = d.designation_id || "";
             opt.textContent = `${d.designation_code} - ${d.designation_name}`;
             desigSelect.appendChild(opt);
           });
@@ -3225,6 +3570,7 @@ const attendanceRecords = [];
           employees.forEach(emp => {
             const opt = document.createElement("option");
             opt.value = emp.employee_code || String(emp.employee_id);
+            opt.dataset.empId = emp.employee_id || "";
             opt.textContent = `${emp.employee_code} - ${emp.first_name} ${emp.last_name}`;
             rmSelect.appendChild(opt);
           });
@@ -3248,12 +3594,18 @@ const attendanceRecords = [];
       leaveTypeSelectors.forEach(id => {
         const sel = document.querySelector(id);
         if (!sel) return;
-        const rows = pageConfig["leave-type-master"].rows;
         sel.innerHTML = '<option value="">Select leave type</option>';
-        rows.forEach(r => {
+        const items = leaveTypeData.length ? leaveTypeData : pageConfig["leave-type-master"].rows;
+        items.forEach(item => {
           const opt = document.createElement("option");
-          opt.value = r[0];
-          opt.textContent = `${r[0]} - ${r[1]}`;
+          if (leaveTypeData.length) {
+            opt.value = String(item.leave_type_id);
+            opt.dataset.leaveCode = item.leave_code;
+            opt.textContent = `${item.leave_code} - ${item.leave_name}`;
+          } else {
+            opt.value = item[0];
+            opt.textContent = `${item[0]} - ${item[1]}`;
+          }
           sel.appendChild(opt);
         });
       });
@@ -3261,12 +3613,18 @@ const attendanceRecords = [];
       // Populate employee dropdown for leave request
       const empSelect = document.querySelector("#leaveRequestEmployee");
       if (empSelect) {
-        const empRows = pageConfig["employee-master"].rows;
         empSelect.innerHTML = '<option value="">Select employee</option>';
-        empRows.forEach(r => {
+        const items = employeeMasterData.length ? employeeMasterData : pageConfig["employee-master"].rows;
+        items.forEach(item => {
           const opt = document.createElement("option");
-          opt.value = r[0];
-          opt.textContent = `${r[0]} - ${r[1]}`;
+          if (employeeMasterData.length) {
+            opt.value = String(item.employee_id);
+            const empCode = item.employee_code || `EMP${String(item.employee_id).padStart(3, "0")}`;
+            opt.textContent = `${empCode} - ${(item.first_name || "") + " " + (item.last_name || "")}`.trim();
+          } else {
+            opt.value = item[0];
+            opt.textContent = `${item[0]} - ${item[1]}`;
+          }
           empSelect.appendChild(opt);
         });
       }
@@ -3456,6 +3814,7 @@ const attendanceRecords = [];
       populateDepartmentForm(base);
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("department-master-form", isEdit ? "edit" : "new", editingDepartmentId);
       refreshIcons();
     }
 
@@ -3547,6 +3906,7 @@ const attendanceRecords = [];
       populateDesignationForm(base);
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("designation-master-form", isEdit ? "edit" : "new", editingDesignationId);
       refreshIcons();
     }
 
@@ -3595,7 +3955,8 @@ const attendanceRecords = [];
       return {
         role_name: "",
         role_code: "",
-        status: "Active"
+        status: "Active",
+        entity_role: ""
       };
     }
 
@@ -3700,6 +4061,7 @@ const attendanceRecords = [];
       buildRolePermissionGrid(isEdit ? (record.permissions || null) : null);
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("role-manager-form", isEdit ? "edit" : "new", editingRoleId);
       refreshIcons();
     }
 
@@ -3724,6 +4086,7 @@ const attendanceRecords = [];
       });
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("leave-type-master-form", isEdit ? "edit" : "new", editingLeaveTypeId);
       refreshIcons();
     }
 
@@ -3748,6 +4111,7 @@ const attendanceRecords = [];
       });
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("leave-policy-form", isEdit ? "edit" : "new", editingLeavePolicyId);
       refreshIcons();
     }
 
@@ -3768,6 +4132,7 @@ const attendanceRecords = [];
       $("#policyVariantForm").reset();
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("policy-variants-form", "new", null);
       refreshIcons();
     }
 
@@ -3788,6 +4153,7 @@ const attendanceRecords = [];
       $("#policyAssignmentForm").reset();
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("policy-assignments-form", "new", null);
       refreshIcons();
     }
 
@@ -3808,6 +4174,7 @@ const attendanceRecords = [];
       $("#holidayCalendarForm").reset();
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("holiday-calendar-form", "new", null);
       refreshIcons();
     }
 
@@ -3828,18 +4195,38 @@ const attendanceRecords = [];
       $("#primaryAction").className = "button";
       $("#primaryAction").innerHTML = `<i data-lucide="arrow-left"></i>Back to Leave Requests`;
       loadLeaveDropdownOptions();
+      $("#submitLeaveRequestForm").innerHTML = `<i data-lucide="save"></i>${isEdit ? "Save Changes" : "Submit Request"}`;
+      const fmtLrDate = v => {
+        if (!v) return "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+      };
       $$("[data-leave-request-field]").forEach(f => {
-        f.value = isEdit ? (record[f.dataset.leaveRequestField] ?? "") : "";
+        const val = record ? (record[f.dataset.leaveRequestField] ?? "") : "";
+        f.value = f.type === "date" ? fmtLrDate(val) : val;
       });
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("leave-requests-form", isEdit ? "edit" : "new", editingLeaveRequestId);
       refreshIcons();
     }
 
     function openAttendanceForm(record) {
       const isEdit = !!record;
       attendanceFormMode = isEdit ? "edit" : "create";
-      editingAttendanceId = isEdit ? record.id : null;
+      const fmtDate = v => {
+        if (!v) return "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+      };
+      const fmtTime = v => {
+        if (!v) return "";
+        const m = String(v).match(/(\d{2}:\d{2})(?::\d{2})?(?:\.\d+)?$/);
+        return m ? m[1] : "";
+      };
+      editingAttendanceId = isEdit ? (record.attendance_id || record.id) : null;
       activePage = "attendance-form";
       $$(".nav-single, .nav-child").forEach(b => b.classList.remove("is-active"));
       $('.nav-child[data-page="attendance-list"]')?.classList.add("is-active");
@@ -3854,16 +4241,51 @@ const attendanceRecords = [];
       $("#primaryAction").innerHTML = `<i data-lucide="arrow-left"></i>Back to Attendance List`;
       populateEmployeeDropdown($("#attendanceEmployee"));
       populateLocationDropdown($("#attendanceLocation"));
-      populateShiftDropdown($("#attendanceShift"));
+      populateShiftDropdown($("#attendanceShift"), record?.location_id || null);
+      const fieldAlias = { check_in: "checkIn", check_out: "checkOut" };
       $$("[data-attendance-field]").forEach(f => {
-        f.value = isEdit ? (record[f.dataset.attendanceField] ?? "") : "";
+        const fieldName = f.dataset.attendanceField;
+        let val = isEdit ? (record[fieldName] ?? record[fieldAlias[fieldName]] ?? "") : "";
+        if (f.type === "date") val = fmtDate(val);
+        if (f.type === "time") val = fmtTime(val);
+        f.value = val;
       });
+      const totalHoursEl = $("#attendanceForm [data-attendance-field='total_hours']");
+      if (totalHoursEl) totalHoursEl.setAttribute("readonly", "");
+      if (isEdit && !record.shift_id && record.shift) {
+        const opt = Array.from($("#attendanceShift").options).find(o => o.textContent === record.shift);
+        if (opt) $("#attendanceShift").value = opt.value;
+      }
+      if (isEdit && !record.location_id && record.location) {
+        const opt = Array.from($("#attendanceLocation").options).find(o => o.textContent === record.location);
+        if (opt) $("#attendanceLocation").value = opt.value;
+      }
+      const locVal = record?.location_id || $("#attendanceLocation").value;
+      if (locVal) populateShiftDropdown($("#attendanceShift"), locVal);
       if (!isEdit) {
         const today = new Date().toISOString().slice(0, 10);
         if ($("#attendanceForm [data-attendance-field='attendance_date']")) $("#attendanceForm [data-attendance-field='attendance_date']").value = today;
       }
+      if (isEdit && record.check_in && record.check_out) {
+        const sf = $("#attendanceForm [data-attendance-field='status']");
+        if (sf) sf.value = "Present";
+      }
+      if (!isEdit || !$("#attendanceShift").value) {
+        const locId = record?.location_id || $("#attendanceLocation").value;
+        const empId = record?.employee_id || $("#attendanceEmployee").value;
+        const dateRaw = record?.attendance_date || $("#attendanceForm [data-attendance-field='attendance_date']")?.value;
+        if (locId && empId && dateRaw) {
+          const dateIso = fmtDate(dateRaw);
+          if (dateIso) fetchRosterShift(locId, empId, dateIso).then(alloc => {
+            if (alloc?.policy_id && !$("#attendanceShift").value) {
+              $("#attendanceShift").value = String(alloc.policy_id);
+            }
+          });
+        }
+      }
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("attendance-form", isEdit ? "edit" : "new", editingAttendanceId);
       refreshIcons();
     }
 
@@ -3889,6 +4311,7 @@ const attendanceRecords = [];
       });
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("regularization-form", isEdit ? "edit" : "new", editingRegularizationId);
       refreshIcons();
     }
 
@@ -3915,6 +4338,7 @@ const attendanceRecords = [];
       });
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("shift-exceptions-form", isEdit ? "edit" : "new", editingShiftExceptionId);
       refreshIcons();
     }
 
@@ -3940,6 +4364,7 @@ const attendanceRecords = [];
       });
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("co-ledger-form", isEdit ? "edit" : "new", editingCoLedgerId);
       refreshIcons();
     }
 
@@ -3959,6 +4384,7 @@ const attendanceRecords = [];
       $("#attendanceReportForm").reset();
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("attendance-reports-form", "new", null);
       refreshIcons();
     }
 
@@ -3967,9 +4393,12 @@ const attendanceRecords = [];
       select.innerHTML = `<option value="">Select employee</option>`;
       const data = employeeMasterData.length ? employeeMasterData : pageConfig["employee-master"]?.rows || [];
       const filtered = locationId ? data.filter(e => Number(e.location_id) === Number(locationId)) : data;
+      const seen = new Set();
       filtered.forEach(e => {
-        const opt = document.createElement("option");
         const empId = e.employee_id || "";
+        if (seen.has(empId)) return;
+        seen.add(empId);
+        const opt = document.createElement("option");
         const empName = e.first_name ? `${e.first_name} ${e.last_name || ""}`.trim() : (Array.isArray(e) ? e[1] || e[0] || "" : "");
         opt.value = empId;
         opt.textContent = empName;
@@ -3988,11 +4417,12 @@ const attendanceRecords = [];
       });
     }
 
-    function populateShiftDropdown(select) {
+    function populateShiftDropdown(select, locationId) {
       if (!select) return;
       select.innerHTML = `<option value="">Select shift</option>`;
+      const sources = locationId ? subLocations.filter(loc => String(loc.dbId) === String(locationId)) : subLocations || [];
       const seen = new Set();
-      (subLocations || []).forEach(loc => {
+      sources.forEach(loc => {
         (loc.shifts || []).forEach(s => {
           const id = String(s[0]);
           if (!seen.has(id)) {
@@ -4004,6 +4434,25 @@ const attendanceRecords = [];
           }
         });
       });
+    }
+
+    const rosterShiftCache = {};
+    async function fetchRosterShift(locationId, employeeId, dateIso) {
+      const key = `${locationId}_${employeeId}_${dateIso}`;
+      if (rosterShiftCache[key] !== undefined) return rosterShiftCache[key];
+      try {
+        const list = await fetch(`/api/rosters?location_id=${locationId}&status=Published`).then(r => r.ok ? r.json() : []);
+        const roster = list.find(r => dateIso >= r.startDate && dateIso <= r.endDate);
+        if (!roster) { rosterShiftCache[key] = null; return null; }
+        const full = await fetch(`/api/rosters/${roster.rosterId}`).then(r => r.ok ? r.json() : null);
+        const alloc = full?.allocation || null;
+        const entry = alloc ? (alloc[employeeId]?.[dateIso] || null) : null;
+        rosterShiftCache[key] = entry;
+        return entry;
+      } catch {
+        rosterShiftCache[key] = null;
+        return null;
+      }
     }
 
     function mapDbRowToRoleRow(dbRow) {
@@ -4175,32 +4624,6 @@ const attendanceRecords = [];
         };
       }
 
-      // validate shift policies
-      const policies = record.shift_policies || [];
-      if (policies.length === 0) {
-        return {
-          valid: false,
-          message: "At least one shift policy is required.",
-          fields: []
-        };
-      }
-      for (const p of policies) {
-        if (!p.policy_name) {
-          return {
-            valid: false,
-            message: "Each shift policy must have a name.",
-            fields: []
-          };
-        }
-        if (!p.shift_start_time || !p.shift_end_time) {
-          return {
-            valid: false,
-            message: `Set start and end times for "${p.policy_name}".`,
-            fields: []
-          };
-        }
-      }
-
       return { valid: true, message: "", fields: [] };
     }
 
@@ -4249,17 +4672,29 @@ const attendanceRecords = [];
       setEntityStep(0);
     }
 
-    function populateEntityRoleMasterOptions() {
-      const source = $('[data-employee-field="role_id"]');
+    async function populateEntityRoleMasterOptions() {
       const target = $('[data-entity-access-field="role_id"]');
-      if (!source || !target) return;
-
-      const options = Array.from(source.options)
-        .filter(option => option.value)
-        .map(option => ({ value: option.value, label: option.textContent.trim() }));
-
+      if (!target) return;
+      const api = window.IndipetHRMS?.api;
+      const mode = window.IndipetHRMS?.dataMode;
+      const entityRole = $('[data-entity-field="entity_role"]')?.value || "";
+      let roles = [];
+      if (mode === "api" && api) {
+        roles = await api.roles.list({ entity_role: entityRole });
+      }
+      if (roles.length === 0) {
+        roles = pageConfig["role-manager"].rows.map(r => ({
+          role_code: r[0],
+          role_name: r[1]
+        }));
+      }
       target.replaceChildren(new Option("Select role from Role Master", ""));
-      options.forEach(option => target.add(new Option(option.label, option.value)));
+      roles.forEach(r => {
+        const opt = document.createElement("option");
+        opt.value = r.role_code || String(r.role_id);
+        opt.textContent = `${r.role_code || r.role_name} - ${r.role_name}`;
+        target.appendChild(opt);
+      });
     }
 
     function entityLoginAccessRequired() {
@@ -4363,6 +4798,7 @@ const attendanceRecords = [];
       populateEntityForm(isEdit ? { ...emptyEntityRecord(), ...record } : undefined);
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("entity-master-form", isEdit ? "edit" : "new", editingEntityId);
       refreshIcons();
     }
 
@@ -4379,6 +4815,8 @@ const attendanceRecords = [];
       $("#nextEntityStep").hidden = activeEntityStep === 5;
       $("#submitEntityForm").hidden = activeEntityStep !== 5;
       clearEntityFormError();
+      if (activeEntityStep === 4) populateEntityRoleMasterOptions();
+      if (activeEntityStep === 5) updateEntityCreateButtonState();
       refreshIcons();
     }
 
@@ -4565,7 +5003,7 @@ const attendanceRecords = [];
       $("#modalSubtitle").textContent = "Employee setup workflow";
     }
 
-    function openEmployeeForm(record) {
+    async function openEmployeeForm(record) {
       const isEdit = !!record;
       employeeFormMode = isEdit ? "edit" : "create";
       editingEmployeeId = isEdit ? record.employee_id : null;
@@ -4580,19 +5018,93 @@ const attendanceRecords = [];
       $("#employeeFormView").classList.add("is-active");
       setEmployeeFormHeader(isEdit ? "edit" : null);
       resetEmployeeForm();
-      loadEntityOptions();
-      loadEmployeeLocationOptions();
-      loadEmployeeDepartmentOptions();
-      loadEmployeeDesignationOptions();
-      loadRoleOptions();
-      loadEmployeeReportingManagers();
+      await Promise.all([
+        loadEntityOptions(),
+        loadEmployeeLocationOptions(),
+        loadEmployeeDepartmentOptions(),
+        loadEmployeeDesignationOptions(),
+        loadRoleOptions(),
+        loadEmployeeReportingManagers(),
+        loadEmployeeStateOptions()
+      ]);
+      wireEmployeePincodeFields();
       if (isEdit) {
+        const fieldAliases = {
+          is_reporting_manager_eligible: "is_reporting_manager",
+          date_of_joining: "date_of_joining",
+          date_of_birth: "date_of_birth"
+        };
+
+        const fmtDate = v => {
+          if (!v) return "";
+          if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+          const d = new Date(v);
+          return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+        };
+
+        const fkDataset = {
+          parent_entity_id: "entityId",
+          department_id: "deptId",
+          designation_id: "desigId",
+          location_id: "locId",
+          role_id: "roleId",
+          reporting_manager_id: "empId"
+        };
+
+        const getVal = key => {
+          const alias = fieldAliases[key];
+          return record[alias || key] ?? record[key] ?? "";
+        };
+
+        const setFkSelect = (key, val) => {
+          const f = document.querySelector(`[data-employee-field="${key}"]`);
+          if (!f || f.tagName !== "SELECT") return;
+          const attr = fkDataset[key];
+          if (attr && val != null && val !== "") {
+            const match = [...f.options].find(o => o.dataset[attr] === String(val));
+            if (match) { f.value = match.value; return true; }
+          }
+          f.value = val ?? "";
+          return false;
+        };
+
+        const entityVal = getVal("parent_entity_id");
+        const deptVal = getVal("department_id");
+
+        setFkSelect("parent_entity_id", entityVal);
+        setFkSelect("department_id", deptVal);
+
+        await loadEmployeeLocationOptions();
+        await loadEmployeeDesignationOptions();
+        await loadEmployeeReportingManagers();
+
+        const cascadeFirst = ["parent_entity_id", "department_id"];
         $$("[data-employee-field]").forEach(f => {
-          f.value = record[f.dataset.employeeField] ?? "";
+          const key = f.dataset.employeeField;
+          const val = getVal(key);
+          if (cascadeFirst.includes(key)) return;
+          if (f.tagName === "SELECT" && val != null && val !== "") {
+            const attr = fkDataset[key];
+            if (attr) {
+              const match = [...f.options].find(o => o.dataset[attr] === String(val));
+              if (match) { f.value = match.value; return; }
+            }
+          }
+          if (f.type === "date") { f.value = fmtDate(val); return; }
+          f.value = val ?? "";
         });
+
+        setFkSelect("location_id", getVal("location_id"));
+        const locSel = document.querySelector('[data-employee-field="location_id"]');
+        if (locSel) locSel.dispatchEvent(new Event("change"));
+
+        const permBlock = document.getElementById("employeePermanentAddressBlock");
+        if (permBlock) permBlock.style.display = record.same_as_present === "false" ? "block" : "none";
       }
+      $("#submitEmployeeForm").innerHTML = `<i data-lucide="save"></i>${isEdit ? "Save Changes" : "Create Employee"}`;
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      syncPageURL("employee-master-form", isEdit ? "edit" : "new", editingEmployeeId);
       refreshIcons();
     }
 
@@ -4614,7 +5126,7 @@ const attendanceRecords = [];
       const preferredShift = $("#employeePreferredShift");
       if (!preferredShift) return;
       const currentValue = preferredShift.value;
-      const location = subLocations.find(item => item.id === locationId);
+      const location = subLocations.find(item => item.id === locationId || String(item.dbId) === String(locationId));
       const activeShifts = (location?.shifts || []).filter(shift => shift[5] === "Active");
       if (!locationId) {
         preferredShift.innerHTML = `<option value="">Select assigned location first</option>`;
@@ -4638,7 +5150,26 @@ const attendanceRecords = [];
 
     function collectEmployeeRecord() {
       return $$("[data-employee-field]").reduce((record, field) => {
-        record[field.dataset.employeeField] = field.value.trim();
+        const key = field.dataset.employeeField;
+        const sel = field.selectedOptions?.[0];
+        if (key === "parent_entity_id" && sel?.dataset?.entityId) {
+          record[key] = sel.dataset.entityId;
+        } else if (key === "department_id" && sel?.dataset?.deptId) {
+          record[key] = sel.dataset.deptId;
+        } else if (key === "designation_id" && sel?.dataset?.desigId) {
+          record[key] = sel.dataset.desigId;
+        } else if (key === "location_id" && sel?.dataset?.locId) {
+          record[key] = sel.dataset.locId;
+        } else if (key === "role_id" && sel?.dataset?.roleId) {
+          record[key] = sel.dataset.roleId;
+        } else if (key === "reporting_manager_id" && sel?.dataset?.empId) {
+          record[key] = sel.dataset.empId;
+        } else {
+          record[key] = field.value.trim();
+        }
+        if (key === "is_reporting_manager_eligible") {
+          record.is_reporting_manager = record[key];
+        }
         return record;
       }, {});
     }
@@ -4756,7 +5287,7 @@ const attendanceRecords = [];
         date_of_birth: "", blood_group: "", marital_status: "", nationality: "Indian",
         guardian_name: "", spouse_name: "",
         present_address: "", address_city: "", address_state: "", address_pincode: "",
-        same_as_present: "true", permanent_address: "",
+        same_as_present: "true", permanent_address: "", permanent_city: "", permanent_state: "", permanent_pincode: "",
         emergency_contact_name: "", emergency_relationship: "", emergency_phone: "",
         emergency_alt_phone: "", emergency_address: "",
         aadhaar_number: "", pan_number: "", uan_number: "", pf_number: "",
@@ -4946,6 +5477,9 @@ const attendanceRecords = [];
         $("#moduleStatus").value = "all";
         renderModule(pageKey);
       }
+      if (!pageKey.endsWith("-form") && pageKey !== "roster-board") {
+        syncPageURL(pageKey);
+      }
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       refreshIcons();
@@ -5024,6 +5558,10 @@ const attendanceRecords = [];
 
     $$("[data-nav-target]").forEach(button => {
       button.addEventListener("click", () => activatePage(button.dataset.navTarget));
+    });
+
+    $("#logoutButton")?.addEventListener("click", () => {
+      if (typeof window.logout === "function") window.logout();
     });
 
     $("#collapseSidebar").addEventListener("click", () => {
@@ -5173,7 +5711,7 @@ const attendanceRecords = [];
         $("#shiftPolicyError").classList.remove("is-visible");
       });
     });
-    $("#shiftPolicyForm").addEventListener("submit", event => {
+    $("#shiftPolicyForm").addEventListener("submit", async event => {
       event.preventDefault();
       clearShiftPolicyError();
       updateShiftPolicyCalculations();
@@ -5185,7 +5723,7 @@ const attendanceRecords = [];
         showShiftPolicyError(validation.message, validation.fields);
         return;
       }
-      createShiftPolicy(record);
+      await createShiftPolicy(record);
     });
 
     const closeModalBtn = $("#closeRosterGenerateModal");
@@ -5200,6 +5738,19 @@ const attendanceRecords = [];
         if (event.target === rosterGenModal) closeRosterGenerateModal();
       });
     }
+    const closeRosterExportBtn = $("#closeRosterExportModal");
+    if (closeRosterExportBtn) closeRosterExportBtn.addEventListener("click", closeRosterExportModal);
+    const cancelRosterExportBtn = $("#cancelRosterExport");
+    if (cancelRosterExportBtn) cancelRosterExportBtn.addEventListener("click", closeRosterExportModal);
+    const confirmRosterExportBtn = $("#confirmRosterExport");
+    if (confirmRosterExportBtn) confirmRosterExportBtn.addEventListener("click", handleRosterExport);
+    const rosterExportModal = $("#rosterExportModal");
+    if (rosterExportModal) {
+      rosterExportModal.addEventListener("click", event => {
+        if (event.target === rosterExportModal) closeRosterExportModal();
+      });
+    }
+
     const rosterStartEl = $("#rosterStartDate");
     if (rosterStartEl) {
       rosterStartEl.addEventListener("change", () => {
@@ -5209,6 +5760,78 @@ const attendanceRecords = [];
         }
       });
     }
+    function createRosterSheet(rosterData, rosterSummary) {
+      const employees = rosterData.employees || [];
+      const dates = rosterData.dates || [];
+      const allocation = rosterData.allocation || {};
+      if (dates.length === 0) {
+        const h = ["Location", "Period", "Version", "Status", "Filled", "Open", "Conflicts"];
+        const r = [rosterSummary?.locationName || "", rosterSummary?.period || "", rosterSummary?.version || "", rosterSummary?.status || "", rosterSummary?.filled ?? 0, rosterSummary?.open ?? 0, rosterSummary?.conflicts ?? 0];
+        return XLSX.utils.aoa_to_sheet([h, r]);
+      }
+      const headers = ["Employee", "Department", "Designation", ...dates.map(d => d.label)];
+      const rows = employees.map(emp => {
+        const empId = emp.id || emp.employee_id;
+        const empAlloc = allocation[empId] || {};
+        const cells = dates.map(d => {
+          const a = empAlloc[d.iso];
+          if (!a) return "";
+          if (a.type === "weekly_off") return "WO";
+          if (a.type === "leave") return "LV";
+          if (a.type === "store_closed") return "";
+          return a.shift || "A";
+        });
+        return [emp.name || `${emp.first_name || ""} ${emp.last_name || ""}`.trim(), emp.department || "", emp.designation || "", ...cells];
+      });
+      return XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    }
+
+    async function handleRosterExport() {
+      const checked = $$("#rosterExportList input:checked");
+      if (checked.length === 0) {
+        showToast("Select at least one roster to export.", "error");
+        return;
+      }
+      const api = window.IndipetHRMS?.api;
+      const wb = XLSX.utils.book_new();
+      let hasError = false;
+      for (const checkbox of checked) {
+        const rosterId = checkbox.dataset.rosterId;
+        const locationId = checkbox.dataset.locationId;
+        const rosterSummary = publishedRosters.find(r => String(r.rosterId) === String(rosterId));
+        let rosterData = null;
+        if (api) {
+          try {
+            rosterData = await api.rosters.get(rosterId);
+          } catch (err) {
+            console.warn("Failed to fetch roster:", rosterId, err);
+          }
+        }
+        if (!rosterData) {
+          rosterData = publishedRosters.find(r => String(r.rosterId) === String(rosterId));
+        }
+        if (!rosterData) {
+          hasError = true;
+          continue;
+        }
+        try {
+          const sheet = createRosterSheet(rosterData, rosterSummary);
+          const sheetName = (rosterSummary?.locationName || "Roster").slice(0, 31);
+          XLSX.utils.book_append_sheet(wb, sheet, sheetName);
+        } catch (err) {
+          console.warn("Error creating sheet for roster:", rosterId, err);
+          hasError = true;
+        }
+      }
+      if (wb.SheetNames.length === 0) {
+        showToast("No roster data could be exported.", "error");
+        return;
+      }
+      XLSX.writeFile(wb, "Published Rosters.xlsx");
+      closeRosterExportModal();
+      showToast(`${wb.SheetNames.length} roster(s) exported.`);
+    }
+
     $("#backRosterGenerate").addEventListener("click", () => setRosterGenerateStep(1));
     const backBtn = $("#backRosterGenerate");
     if (backBtn) backBtn.addEventListener("click", () => setRosterGenerateStep(1));
@@ -5247,13 +5870,81 @@ const attendanceRecords = [];
     }
     const confirmDraftBtn = $("#confirmRosterDraft");
     if (confirmDraftBtn) {
-      confirmDraftBtn.addEventListener("click", () => {
+      confirmDraftBtn.addEventListener("click", async () => {
         if (!rosterGeneratedResult) return;
-        const loc = rosterGeneratedResult.location || {};
-        const period = rosterGeneratedResult.period || {};
-        const periodStr = period.start && period.end
-          ? `${formatShortDate(period.start)} — ${formatShortDate(period.end)}`
+        const result = rosterGeneratedResult;
+        const loc = result.location || {};
+        const period = result.period || {};
+        const startDate = period.start;
+        const endDate = period.end;
+        const periodStr = startDate && endDate
+          ? `${formatShortDate(startDate)} — ${formatShortDate(endDate)}`
           : "selected period";
+        const coverage = result.coverage || {};
+        const dates = result.dates || [];
+        let openSlots = 0;
+        for (const dateObj of dates) {
+          const dayCoverage = coverage[dateObj.iso];
+          if (dayCoverage && !dayCoverage.isStoreClosed) {
+            for (const cs of (dayCoverage.shifts || [])) {
+              openSlots += Number(cs.gap) || 0;
+            }
+          }
+        }
+        const conflicts = (result.validation || []).length;
+        const summary = result.summary || {};
+        const sTotal = summary.totalSlots || 0;
+        const totalDays = summary.totalDays || dates.length;
+        const totalEmps = summary.totalEmployees || 0;
+        const filled = Math.min(totalEmps * totalDays, sTotal - openSlots);
+
+        const api = window.IndipetHRMS?.api;
+        try {
+          if (api) {
+            const payload = {
+              location_id: loc.dbId || loc.id,
+              start_date: startDate,
+              end_date: endDate,
+              version: "v1",
+              status: "Draft",
+              filled_slots: filled,
+              open_slots: openSlots,
+              conflicts: conflicts,
+              roster_data: {
+                dates: result.dates,
+                employees: result.employees,
+                shifts: result.shifts,
+                allocation: result.allocation,
+                coverage: result.coverage,
+                validation: result.validation,
+                summary: result.summary,
+              },
+            };
+            await api.rosters.create(payload);
+            publishedRosters = await api.rosters.list();
+          } else {
+            publishedRosters.push({
+              rosterId: "draft_" + Date.now(),
+              locationId: loc.id || loc.dbId,
+              locationName: loc.listName || loc.name,
+              period: periodStr,
+              version: "v1",
+              status: "Draft",
+              filled,
+              open: openSlots,
+              conflicts,
+              keyholder: "Configured",
+              updated: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+              issue: conflicts ? "Has Issues" : "Ready",
+              displayName: loc.name,
+              activeShifts: result.shifts || [],
+            });
+          }
+        } catch (err) {
+          console.error("Draft save error:", err);
+          showToast("Failed to save draft to server.");
+          return;
+        }
         closeRosterGenerateModal();
         showToast(`${loc.listName || "Location"} roster draft saved for ${periodStr}.`);
       });
@@ -5400,6 +6091,10 @@ const attendanceRecords = [];
       }
       if (typeof XLSX === "undefined") {
         showToast("Export library still loading, please try again.", "error");
+        return;
+      }
+      if (activePage === "roster" && rosterControlTab === "published") {
+        openRosterExportModal();
         return;
       }
       if (activePage === "dashboard") {
@@ -5579,10 +6274,15 @@ const attendanceRecords = [];
       "leave-requests": (row, rowIndex) => {
         let record = leaveRequestData[rowIndex];
         if (!record) {
+          const lt = leaveTypeData.find(t => t.leave_code === row[2] || String(t.leave_type_id) === row[2]);
+          const emp = employeeMasterData.find(e => {
+            const ec = e.employee_code || `EMP${String(e.employee_id).padStart(3, "0")}`;
+            return row[1]?.includes(ec) || row[1]?.includes(String(e.employee_id));
+          });
           record = {
             request_id: row[0],
-            employee_id: row[1]?.match(/\d+$/)?.[0] || "",
-            leave_type_id: row[2],
+            employee_id: emp ? String(emp.employee_id) : (row[1]?.match(/\d+$/)?.[0] || ""),
+            leave_type_id: lt ? String(lt.leave_type_id) : row[2],
             start_date: row[3]?.split(" to ")?.[0] || "",
             end_date: row[3]?.split(" to ")?.[1] || row[3]?.split(" to ")?.[0] || ""
           };
@@ -5654,6 +6354,43 @@ const attendanceRecords = [];
         openRosterBoard(record?.rosterId || "", selectedLocationId);
         return;
       }
+      const draftPublish = event.target.closest(".roster-draft-publish");
+      if (draftPublish) {
+        const rosterId = draftPublish.dataset.rosterView;
+        const locationId = draftPublish.dataset.rosterLocation;
+        const api = window.IndipetHRMS?.api;
+        (async () => {
+          try {
+            if (api) {
+              const existingList = await api.rosters.list({ location_id: locationId, status: "Published" });
+              if (existingList && existingList.length > 0) {
+                for (const old of existingList) {
+                  await api.rosters.update(old.rosterId, { status: "Superseded" });
+                }
+              }
+              await api.rosters.update(rosterId, { status: "Published" });
+              publishedRosters = await api.rosters.list();
+            } else {
+              const draftRec = publishedRosters.find(r => String(r.rosterId) === String(rosterId));
+              if (draftRec) {
+                for (const old of publishedRosters) {
+                  if (old.locationId === draftRec.locationId && old.status === "Published") {
+                    old.status = "Superseded";
+                  }
+                }
+                draftRec.status = "Published";
+                draftRec.updated = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+              }
+            }
+            renderRosterControlCenter();
+            showToast("Roster published successfully.");
+          } catch (err) {
+            console.error("Publish from draft error:", err);
+            showToast("Failed to publish roster.", "error");
+          }
+        })();
+        return;
+      }
       const publishedEdit = event.target.closest(".roster-published-edit");
       if (publishedEdit) {
         const rosterId = publishedEdit.dataset.rosterView;
@@ -5663,7 +6400,7 @@ const attendanceRecords = [];
           return;
         }
         selectedLocationId = locationId;
-        const location = subLocations.find(item => item.id === selectedLocationId) || getSelectedLocation();
+        const location = subLocations.find(item => item.id === selectedLocationId || String(item.dbId) === String(selectedLocationId)) || getSelectedLocation();
         showToast(`Edit view for ${location.listName}.`);
         return;
       }
@@ -5697,7 +6434,7 @@ const attendanceRecords = [];
       const boardAction = event.target.closest("[data-roster-board-action]");
       if (boardAction) {
         const locationId = boardAction.dataset.locationId;
-        const location = subLocations.find(item => item.id === locationId) || getSelectedLocation();
+        const location = subLocations.find(item => item.id === locationId || String(item.dbId) === String(locationId)) || getSelectedLocation();
         selectedLocationId = location.id;
         const action = boardAction.dataset.rosterBoardAction;
         if (action === "validate") {
@@ -5731,7 +6468,7 @@ const attendanceRecords = [];
           return;
         }
         if (action === "export") {
-          showToast(`${location.listName} roster export prepared.`);
+          openRosterExportModal();
           return;
         }
         if (action === "history") {
@@ -5799,17 +6536,19 @@ const attendanceRecords = [];
           return;
         }
       }
-      if (event.target.closest(".roster-cell-editor")) return;
+      if (event.target.closest(".roster-cell-picker, .picker-backdrop")) return;
       const rosterCell = event.target.closest("[data-roster-cell]");
       if (rosterCell && activePage === "roster-board") {
         if (!currentPublishedRosterData) {
           showToast("Editing is only available for published roster views.");
           return;
         }
-        const existingPicker = document.querySelector(".roster-cell-editor");
+        const existingPicker = document.querySelector(".roster-cell-picker");
         if (existingPicker) {
           existingPicker.remove();
         }
+        const existingBackdrop = document.querySelector(".picker-backdrop");
+        if (existingBackdrop) existingBackdrop.remove();
         const employeeId = rosterCell.dataset.employeeId;
         const dateIso = rosterCell.dataset.rosterDate;
         if (!employeeId || !dateIso) return;
@@ -5913,9 +6652,13 @@ const attendanceRecords = [];
         }
       }
 
+      if (action.dataset.controlAction === "copy-hours") {
+        openCopyHoursPicker();
+        return;
+      }
+
       const labels = {
         readiness: "Readiness check completed.",
-        "copy-hours": "Copy operating hours opened.",
         "row-menu": "Record actions opened.",
         "view-validation": "Validation details opened.",
         "add-service": "Add service configuration opened.",
@@ -5959,8 +6702,6 @@ const attendanceRecords = [];
     $("#cancelLocationForm").addEventListener("click", () => activatePage("sub-location"));
     $("#backLocationStep").addEventListener("click", () => setLocationStep(activeLocationStep - 1));
     $("#nextLocationStep").addEventListener("click", () => setLocationStep(activeLocationStep + 1));
-    $("#addShiftPolicyCard").addEventListener("click", addShiftPolicyCard);
-
     $("#locationForm").addEventListener("submit", async event => {
       event.preventDefault();
       clearLocationFormError();
@@ -6464,11 +7205,53 @@ const attendanceRecords = [];
     // ---- Attendance Form ----
     const attendanceLocEl = $("#attendanceLocation");
     const attendanceEmpEl = $("#attendanceEmployee");
+    const attendanceDateEl = $("#attendanceForm [data-attendance-field='attendance_date']");
+    const attendanceShiftEl = $("#attendanceShift");
+    const attendanceCheckInEl = $("#attendanceForm [data-attendance-field='check_in']");
+    const attendanceCheckOutEl = $("#attendanceForm [data-attendance-field='check_out']");
+    const attendanceStatusEl = $("#attendanceForm [data-attendance-field='status']");
+    const attendanceTotalHoursEl = $("#attendanceForm [data-attendance-field='total_hours']");
+    function calcTotalHours() {
+      const ci = attendanceCheckInEl?.value;
+      const co = attendanceCheckOutEl?.value;
+      if (ci && co && attendanceTotalHoursEl) {
+        const [ih, im] = ci.split(":").map(Number);
+        const [oh, om] = co.split(":").map(Number);
+        const h = Math.round((oh * 60 + om - ih * 60 - im) / 60 * 10) / 10;
+        attendanceTotalHoursEl.value = h < 0 ? "0" : String(h);
+      } else if (attendanceTotalHoursEl) {
+        attendanceTotalHoursEl.value = "";
+      }
+    }
+    function triggerRosterLookup() {
+      const locId = attendanceLocEl?.value;
+      const empId = attendanceEmpEl?.value;
+      const date = attendanceDateEl?.value;
+      if (locId && empId && date) {
+        fetchRosterShift(locId, empId, date).then(alloc => {
+          if (alloc?.policy_id && !attendanceShiftEl.value) {
+            attendanceShiftEl.value = String(alloc.policy_id);
+          }
+        });
+      }
+    }
+    function autoSetStatus() {
+      calcTotalHours();
+      if (attendanceCheckInEl?.value && attendanceCheckOutEl?.value && attendanceStatusEl) {
+        attendanceStatusEl.value = "Present";
+      }
+    }
     if (attendanceLocEl) {
       attendanceLocEl.addEventListener("change", function () {
         populateEmployeeDropdown(attendanceEmpEl, this.value || null);
+        populateShiftDropdown(attendanceShiftEl, this.value || null);
+        triggerRosterLookup();
       });
     }
+    attendanceEmpEl?.addEventListener("change", triggerRosterLookup);
+    attendanceDateEl?.addEventListener("change", triggerRosterLookup);
+    attendanceCheckInEl?.addEventListener("input", autoSetStatus);
+    attendanceCheckOutEl?.addEventListener("input", autoSetStatus);
     $("#attendanceForm").addEventListener("submit", async event => {
       event.preventDefault();
       const record = {};
@@ -6490,7 +7273,7 @@ const attendanceRecords = [];
               body: JSON.stringify(record)
             }).then(r => r.ok ? r.json() : Promise.reject(new Error("Update failed")));
             const config = pageConfig["attendance-list"];
-            const idx = attendanceData.findIndex(a => a.id === editingAttendanceId);
+            const idx = attendanceData.findIndex(a => Number(a.attendance_id) === Number(editingAttendanceId));
             if (idx >= 0) {
               attendanceData[idx] = updated;
               config.rows[idx] = mapDbRowToAttendanceRow(updated);
@@ -6517,7 +7300,7 @@ const attendanceRecords = [];
           const name = $(`#attendanceEmployee option[value="${record.employee_id}"]`)?.textContent || `Emp ${record.employee_id}`;
           const locName = $(`#attendanceLocation option[value="${record.location_id}"]`)?.textContent || "";
           if (editingAttendanceId) {
-            const idx = attendanceData.findIndex(a => a.id === editingAttendanceId);
+            const idx = attendanceData.findIndex(a => Number(a.attendance_id) === Number(editingAttendanceId));
             if (idx >= 0) {
               Object.assign(attendanceData[idx], record);
               config.rows[idx] = [name, locName, "", record.total_hours ? `${record.total_hours}h` : "-", record.status || "Present"];
@@ -6826,16 +7609,150 @@ const attendanceRecords = [];
       if (!step) return;
       setEntityStep(Number(step.dataset.entityStep));
     });
+    $("#entityForm").addEventListener("keydown", event => {
+      if (event.key === "Enter" && activeEntityStep < 5) {
+        event.preventDefault();
+        setEntityStep(activeEntityStep + 1);
+      }
+    });
     $$("[data-entity-field], [data-entity-access-field]").forEach(field => {
       field.addEventListener("input", () => {
         field.removeAttribute("aria-invalid");
         $("#entityFormError").classList.remove("is-visible");
+        if (activeEntityStep === 5) updateEntityCreateButtonState();
       });
       field.addEventListener("change", () => {
         field.removeAttribute("aria-invalid");
         if (field.dataset.entityField === "entity_role") updateEntityAccessState();
+        if (activeEntityStep === 5) updateEntityCreateButtonState();
       });
     });
+
+    function updateEntityCreateButtonState() {
+      const btn = $("#submitEntityForm");
+      if (!btn) return;
+      const allFilled = $$("[data-entity-field][required]").every(f => f.value.trim());
+      btn.disabled = !allFilled;
+    }
+
+    const MAJOR_CITIES = new Set([
+      "Kolkata", "Mumbai", "Delhi", "Bangalore", "Chennai", "Hyderabad",
+      "Ahmedabad", "Pune", "Jaipur", "Lucknow", "Surat", "Kanpur",
+      "Nagpur", "Indore", "Patna", "Bhopal", "Vadodara", "Visakhapatnam",
+      "Coimbatore", "Guwahati", "Chandigarh", "Thiruvananthapuram",
+      "Kochi", "Mysore", "Madurai", "Nashik", "Agra", "Varanasi",
+      "Amritsar", "Ludhiana", "Raipur", "Ranchi", "Bhubaneswar",
+      "Dehradun", "Shimla", "Pondicherry", "Panaji", "Gandhinagar",
+      "Srinagar", "Jammu", "Aurangabad", "Jodhpur", "Udaipur",
+    ]);
+
+    const gstField = $('[data-entity-field="gstin"]');
+    if (gstField) {
+      gstField.addEventListener("input", () => {
+        const gst = gstField.value.trim();
+        if (gst.length === 15) {
+          const pan = gst.slice(2, 12);
+          const panField = $('[data-entity-field="pan_number"]');
+          if (panField && !panField.value) panField.value = pan;
+        }
+      });
+    }
+
+    const entityPincode = $("#entityPincode") || $('[data-entity-field="pincode"]');
+    if (entityPincode) {
+      entityPincode.addEventListener("blur", () => onEntityPincodeChange(entityPincode.value.trim()));
+      entityPincode.addEventListener("input", () => {
+        if (entityPincode.value.trim().length === 6) onEntityPincodeChange(entityPincode.value.trim());
+      });
+    }
+
+    async function onEntityPincodeChange(pincode) {
+      const citySelect = $("#entityCity") || $('[data-entity-field="city"]');
+      const stateInput = $("#entityState") || $('[data-entity-field="state"]');
+      if (!citySelect || !stateInput) return;
+      if (!/^\d{6}$/.test(pincode)) return;
+      try {
+        const response = await fetch(`/api/pincode/${pincode}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const cities = (data.cities || []);
+        const major = cities.filter(c => MAJOR_CITIES.has(c));
+        const displayCities = major.length > 0 ? major : cities.slice(0, 5);
+        citySelect.innerHTML = '<option value="">Select city</option>';
+        [...new Set(displayCities)].forEach(city => {
+          const opt = document.createElement("option");
+          opt.value = city;
+          opt.textContent = city;
+          citySelect.appendChild(opt);
+        });
+        if (data.state && stateInput) {
+          stateInput.value = data.state;
+        }
+      } catch {}
+    }
+
+    async function onEmployeePincodeChange(pincode, prefix) {
+      const citySelect = document.getElementById(`employee${prefix}City`);
+      const stateSelect = document.getElementById(`employee${prefix}State`);
+      if (!citySelect || !stateSelect) return;
+      if (!/^\d{6}$/.test(pincode)) return;
+      try {
+        const response = await fetch(`/api/pincode/${pincode}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        citySelect.innerHTML = '<option value="">Select city</option>';
+        (data.cities || []).forEach(city => {
+          const opt = document.createElement("option");
+          opt.value = city;
+          opt.textContent = city;
+          citySelect.appendChild(opt);
+        });
+        if (data.state) {
+          const options = stateSelect.options;
+          for (let i = 0; i < options.length; i++) {
+            if (options[i].value.toLowerCase() === data.state.toLowerCase()) {
+              stateSelect.value = options[i].value;
+              break;
+            }
+          }
+        }
+      } catch {}
+    }
+
+    function wireEmployeePincodeFields() {
+      ["Present", "Permanent"].forEach(prefix => {
+        const pincode = document.getElementById(`employee${prefix}Pincode`);
+        if (pincode) {
+          pincode.addEventListener("blur", () => onEmployeePincodeChange(pincode.value.trim(), prefix));
+          pincode.addEventListener("input", () => {
+            if (pincode.value.trim().length === 6) onEmployeePincodeChange(pincode.value.trim(), prefix);
+          });
+        }
+      });
+    }
+
+    async function loadEmployeeStateOptions() {
+      const selects = ["employeePresentState", "employeePermanentState"].map(id => document.getElementById(id)).filter(Boolean);
+      if (!selects.length) return;
+      try {
+        const response = await fetch("/api/states");
+        if (!response.ok) return;
+        const states = await response.json();
+        selects.forEach(select => {
+          select.innerHTML = '<option value="">Select state</option>';
+          states.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s.state_name;
+            opt.dataset.code = s.state_code;
+            opt.textContent = `${s.state_name} (${s.state_code})`;
+            select.appendChild(opt);
+          });
+        });
+      } catch {
+        selects.forEach(s => { s.innerHTML = '<option value="">Select state</option>'; });
+      }
+    }
+
     $("#entityForm").addEventListener("submit", async event => {
       event.preventDefault();
       clearEntityFormError();
@@ -6882,6 +7799,14 @@ const attendanceRecords = [];
         updateEmployeeReadiness();
       });
     });
+    const sameAsPresentEl = document.getElementById("employeeSameAsPresent");
+    if (sameAsPresentEl) {
+      sameAsPresentEl.addEventListener("change", () => {
+        const block = document.getElementById("employeePermanentAddressBlock");
+        if (block) block.style.display = sameAsPresentEl.value === "false" ? "block" : "none";
+      });
+    }
+    wireEmployeePincodeFields();
     $("#saveEmployeeDraft").addEventListener("click", async () => {
       clearEmployeeFormError();
       const record = collectEmployeeRecord();
@@ -7052,7 +7977,10 @@ const attendanceRecords = [];
 
           await Promise.all(subLocations.map(async (location) => {
             try {
-              const policies = await api.shiftPolicies.list({ location_id: location.dbId });
+              const [policies, hours] = await Promise.all([
+                api.shiftPolicies.list({ location_id: location.dbId }),
+                api.locations.operatingHours.list(location.dbId).catch(() => [])
+              ]);
               if (Array.isArray(policies) && policies.length) {
                 location.shifts = policies.map(p => [
                   p.policy_id,
@@ -7071,6 +7999,27 @@ const attendanceRecords = [];
                   p.keyholder_required === true ? "Yes" : "No",
                   p.max_consecutive_days || 6,
                 ]);
+              }
+              if (Array.isArray(hours) && hours.length === 7) {
+                location.operatingHoursRecords = hours.map(h => ({
+                  dayOfWeek: h.day_of_week,
+                  dayName: (weekDays.find(d => d.dayOfWeek === h.day_of_week) || {}).dayName || "",
+                  isOpen: Boolean(h.is_open),
+                  officialOpen: String(h.official_open_time || "").substring(0, 5),
+                  officialClose: String(h.official_close_time || "").substring(0, 5),
+                  operationalOpen: String(h.operational_open_time || "").substring(0, 5),
+                  operationalClose: String(h.operational_close_time || "").substring(0, 5)
+                }));
+                const firstOpen = location.operatingHoursRecords.find(r => r.isOpen);
+                location.hoursConfigured = Boolean(firstOpen);
+                location.officialHours = firstOpen
+                  ? formatHourRange(firstOpen.officialOpen, firstOpen.officialClose)
+                  : "Not configured";
+                location.operationalHours = firstOpen
+                  ? formatHourRange(firstOpen.operationalOpen, firstOpen.operationalClose)
+                  : "Not configured";
+                const closedDays = location.operatingHoursRecords.filter(r => !r.isOpen);
+                location.closedDay = closedDays.length === 1 ? closedDays[0].dayName : null;
               }
             } catch (err) {
               console.warn(`Failed to load shift policies for ${location.listName}:`, err);
@@ -7102,6 +8051,17 @@ const attendanceRecords = [];
           const empConfig = pageConfig["employee-master"];
           empConfig.rows = employees.map(e => mapDbRowToEmployeeRow(e));
           employeeMasterData = employees;
+          keyholderEmployees.splice(0, keyholderEmployees.length, ...employees.map(emp => {
+            const loc = subLocations.find(l => l.dbId === emp.location_id);
+            return {
+              id: emp.employee_id,
+              code: emp.employee_code || String(emp.employee_id),
+              name: `${emp.first_name || ""} ${emp.last_name || ""}`.trim(),
+              locationId: loc ? loc.id : String(emp.location_id),
+              status: emp.status || "Active",
+              keyholderEligible: Boolean(emp.is_keyholder_eligible)
+            };
+          }));
           empConfig.values = [
             String(empConfig.rows.length),
             String(empConfig.rows.filter(r => r[4] === "Complete").length),
@@ -7206,6 +8166,82 @@ const attendanceRecords = [];
       await loadRoleOptions();
       await loadEntityOptions();
       await loadLeaveDropdownOptions();
+      window.addEventListener("popstate", (event) => {
+        const state = event.state;
+        if (state && state.pageKey) {
+          if (state.pageKey.endsWith("-form")) {
+            const parent = FORM_PARENT[state.pageKey];
+            if (parent) {
+              $$(".module-view").forEach(v => v.classList.remove("is-active"));
+              const viewId = state.pageKey.replace(/-form$/, "FormView");
+              const el = document.getElementById(viewId);
+              if (el) el.classList.add("is-active");
+              activePage = state.pageKey;
+              $$(".nav-single, .nav-child").forEach(b => b.classList.remove("is-active"));
+              const nav = $(`[data-page="${parent}"], .nav-single[data-page="${parent}"]`);
+              if (nav) nav.classList.add("is-active");
+            }
+          } else {
+            activatePage(state.pageKey);
+          }
+        } else {
+          const { pageKey, action, id } = parsePath(window.location.pathname);
+          if (pageKey !== "dashboard") {
+            if (action) {
+              openFormFromURL(pageKey, action, id);
+            } else {
+              activatePage(pageKey);
+            }
+          }
+        }
+      });
+
+      const initPath = window.IndipetHRMS?.initialPath || window.location.pathname.replace(/^\/+/, "");
+      if (initPath) {
+        const { pageKey, action, id } = parsePath("/" + initPath);
+        if (pageKey !== "dashboard") {
+          if (action) {
+            openFormFromURL(pageKey, action, id);
+          } else {
+            activatePage(pageKey);
+          }
+        }
+      }
+
+      function openFormFromURL(pageKey, action, id) {
+        const formKey = pageKey + "-form";
+        if (!FORM_PARENT[formKey]) return;
+        const FN_MAP = {
+          "entity-master": openEntityForm,
+          "employee-master": openEmployeeForm,
+          "sub-location": openLocationForm,
+          "department-master": openDepartmentForm,
+          "designation-master": openDesignationForm,
+          "role-manager": openRoleForm,
+          "leave-type-master": openLeaveTypeForm,
+          "leave-policy": openLeavePolicyForm,
+          "policy-variants": openPolicyVariantForm,
+          "policy-assignments": openPolicyAssignmentForm,
+          "holiday-calendar": openHolidayCalendarForm,
+          "leave-requests": openLeaveRequestForm,
+          "attendance-list": openAttendanceForm,
+          "regularization": openRegularizationForm,
+          "shift-exceptions": openShiftExceptionForm,
+          "co-ledger": openCoLedgerForm,
+          "attendance-reports": openAttendanceReportForm,
+        };
+        const fn = FN_MAP[pageKey];
+        if (!fn) { activatePage(pageKey); return; }
+        if (pageKey === "sub-location") {
+          fn(action === "edit" ? "edit" : "create");
+        } else if (pageKey === "department-master" || pageKey === "designation-master" || pageKey === "role-manager") {
+          const record = action === "edit" && id ? { [`${pageKey === "role-manager" ? "role" : pageKey.split("-")[0]}_id`]: id } : null;
+          fn(action === "edit" ? "edit" : "create", record);
+        } else {
+          fn(action === "edit" && id ? { id } : null);
+        }
+      }
+
       setupLocationFormEvents();
       renderWeeklyChart();
       renderAttendance();

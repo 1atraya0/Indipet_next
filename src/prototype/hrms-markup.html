@@ -120,6 +120,10 @@
           <i data-lucide="circle-help"></i>
           <span>Help & Support</span>
         </button>
+        <button class="support-button" id="logoutButton" title="Logout" style="color:#ef4444;">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </button>
       </div>
     </aside>
 
@@ -454,11 +458,7 @@
                   <span class="entity-step-number">4</span>
                   <span><span class="entity-step-name">Responsibility</span><span class="entity-step-copy">Managers and keyholders</span></span>
                 </button>
-                <button class="entity-step" type="button" data-location-step="4">
-                  <span class="entity-step-number">5</span>
-                  <span><span class="entity-step-name">Shift Policy</span><span class="entity-step-copy">Default shift configuration</span></span>
-                </button>
-              </nav>
+      </nav>
 
               <div class="location-form-error" id="locationFormError" role="alert">
                 <i data-lucide="circle-alert"></i>
@@ -466,7 +466,7 @@
               </div>
 
                 <section class="location-form-section is-active" id="locationIdentity" data-location-section="0">
-                  <div class="form-section-kicker">Step 1 of 5</div>
+                  <div class="form-section-kicker">Step 1 of 4</div>
                   <h2 class="form-section-title">Location Identity</h2>
                   <p class="form-section-description">Create the base identity and operating classification for this sub location.</p>
                   <div class="location-form-grid">
@@ -510,7 +510,6 @@
                     <label class="location-form-field">
                       <span class="location-form-label">Status <span class="field-state required">Required</span></span>
                       <select name="status" data-location-field="status" required>
-                        <option value="">Select status</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                       </select>
@@ -526,7 +525,7 @@
                 </section>
 
                 <section class="location-form-section" id="locationAddress" data-location-section="1">
-                  <div class="form-section-kicker">Step 2 of 5</div>
+                  <div class="form-section-kicker">Step 2 of 4</div>
                   <h2 class="form-section-title">Address & Geography</h2>
                   <p class="form-section-description">Maintain the existing address and geographic fields for this sub location.</p>
                   <div class="location-form-grid">
@@ -566,7 +565,7 @@
                 </section>
 
                 <section class="location-form-section" id="locationContact" data-location-section="2">
-                  <div class="form-section-kicker">Step 3 of 5</div>
+                  <div class="form-section-kicker">Step 3 of 4</div>
                   <h2 class="form-section-title">Contact & Cost Centre</h2>
                   <p class="form-section-description">Maintain the contact and cost centre fields used by the current location record.</p>
                   <div class="location-form-grid">
@@ -586,7 +585,7 @@
                 </section>
 
                 <section class="location-form-section" id="locationResponsibility" data-location-section="3">
-                  <div class="form-section-kicker">Step 4 of 5</div>
+                  <div class="form-section-kicker">Step 4 of 4</div>
                   <h2 class="form-section-title">Responsibility</h2>
                   <p class="form-section-description">Maintain the existing area manager and keyholder relationships.</p>
                   <div class="location-form-grid">
@@ -611,17 +610,7 @@
                   </div>
                 </section>
 
-                <section class="location-form-section" id="locationShiftPolicy" data-location-section="4">
-                  <div class="form-section-kicker">Step 5 of 5</div>
-                  <h2 class="form-section-title">Shift Policy Configuration</h2>
-                  <p class="form-section-description">Define the default shift policies for this location. Typically Opening and Closing shifts are configured here.</p>
-                  <div class="location-form-grid">
-                    <div id="shiftPolicyCardList" class="span-3"></div>
-                    <div class="span-3" style="margin-top: 4px;">
-                      <button class="button secondary" id="addShiftPolicyCard" type="button"><i data-lucide="plus"></i>Add Another Shift</button>
-                    </div>
-                  </div>
-                </section>
+
             </article>
 
             <div class="location-form-actions">
@@ -705,11 +694,25 @@
                   </label>
                   <label class="location-form-field">
                     <span class="location-form-label">Grade Code <span class="field-state">Optional</span></span>
-                    <input name="grade_code" data-designation-field="grade_code" placeholder="e.g. A, B, C, D" maxlength="10">
+                    <select name="grade_code" data-designation-field="grade_code">
+                      <option value="">Select grade</option>
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                      <option value="C">C</option>
+                      <option value="D">D</option>
+                      <option value="E">E</option>
+                    </select>
                   </label>
                   <label class="location-form-field">
                     <span class="location-form-label">Override Grade Code <span class="field-state">Optional</span></span>
-                    <input name="override_grade_code" data-designation-field="override_grade_code" placeholder="e.g. A, B, C, D" maxlength="10">
+                    <select name="override_grade_code" data-designation-field="override_grade_code">
+                      <option value="">Select grade</option>
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                      <option value="C">C</option>
+                      <option value="D">D</option>
+                      <option value="E">E</option>
+                    </select>
                   </label>
                   <label class="location-form-field">
                     <span class="location-form-label">Keyholder Eligible? <span class="field-state">Optional</span></span>
@@ -768,6 +771,15 @@
                       <select name="status" data-role-field="status">
                         <option value="Active">ACTIVE</option>
                         <option value="Inactive">INACTIVE</option>
+                      </select>
+                    </label>
+                    <label class="location-form-field">
+                      <span class="location-form-label">Entity Type <span class="field-state">SELECT</span></span>
+                      <select name="entity_role" data-role-field="entity_role">
+                        <option value="">All / Global</option>
+                        <option value="Franchisee">Franchisee</option>
+                        <option value="Branch">Branch</option>
+                        <option value="HQ">HQ</option>
                       </select>
                     </label>
                   </div>
@@ -924,16 +936,18 @@
                     <input name="address_line2" data-entity-field="address_line2" placeholder="Enter address line 2">
                   </label>
                   <label class="location-form-field">
-                    <span class="location-form-label">City</span>
-                    <input name="city" data-entity-field="city" placeholder="Enter city">
+                    <span class="location-form-label">Pincode</span>
+                    <input name="pincode" data-entity-field="pincode" inputmode="numeric" placeholder="Enter pincode" id="entityPincode">
                   </label>
                   <label class="location-form-field">
-                    <span class="location-form-label">Pincode</span>
-                    <input name="pincode" data-entity-field="pincode" inputmode="numeric" placeholder="Enter pincode">
+                    <span class="location-form-label">City</span>
+                    <select name="city" data-entity-field="city" id="entityCity">
+                      <option value="">Select city</option>
+                    </select>
                   </label>
                   <label class="location-form-field">
                     <span class="location-form-label">State</span>
-                    <input name="state" data-entity-field="state" placeholder="Enter state">
+                    <input name="state" data-entity-field="state" placeholder="Enter state" id="entityState">
                   </label>
                   <label class="location-form-field">
                     <span class="location-form-label">Country</span>
@@ -1031,7 +1045,7 @@
               <button class="button" id="cancelEntityForm" type="button">Cancel</button>
               <button class="button" id="backEntityStep" type="button">Back</button>
               <button class="button primary" id="nextEntityStep" type="button">Next</button>
-              <button class="button primary" id="submitEntityForm" type="submit" hidden><i data-lucide="save"></i>Create Entity</button>
+              <button class="button primary" id="submitEntityForm" type="submit" hidden disabled><i data-lucide="save"></i>Create Entity</button>
             </div>
           </form>
         </section>
@@ -1086,7 +1100,7 @@
                     <label class="location-form-field"><span class="location-form-label">Assigned Location <span class="field-state required">Required</span></span><select data-employee-field="location_id" required><option value="">Select location</option><option value="IPL101-SLT201">Indipet Corporate HQ</option><option value="SCP102-DSP202">Deshapriya Park Store</option><option value="SCP102-LKG203">Indipet Care Lake Gardens</option><option value="PCP103-NTW204">Newtown Store</option><option value="HPR104-RJT205">Rajarhat Store</option></select></label>
                     <label class="location-form-field"><span class="location-form-label">Department <span class="field-state required">Required</span></span><select data-employee-field="department_id" required><option value="">Select department</option><option value="HRM301">HR & Admin</option><option value="RTL302">Retail & Store Sales</option><option value="GRM303">Grooming</option><option value="VET304">Veterinary Clinic</option><option value="INV305">Inventory & Procurement</option><option value="FIN306">Finance & Compliance</option></select></label>
                     <label class="location-form-field"><span class="location-form-label">Designation <span class="field-state required">Required</span></span><select data-employee-field="designation_id" required><option value="">Select designation</option><option value="HRM401">HR Manager</option><option value="ARM402">Area Manager</option><option value="STM403">Store Manager</option><option value="SAM404">Store Assistant Manager</option><option value="SAE405">Sales Associate</option><option value="SGR406">Senior Groomer</option><option value="GRM407">Groomer</option><option value="CLM408">Clinic Manager</option><option value="VDR409">Veterinary Doctor</option><option value="VAS410">Vet Assistant</option><option value="INE411">Inventory Executive</option><option value="FNE412">Finance Executive</option></select></label>
-                    <label class="location-form-field"><span class="location-form-label">Employee Category</span><select data-employee-field="employee_category"><option value="">Select category</option><option value="MGT601">Managerial / Supervisory</option><option value="ADM602">Administrative / Clerical</option><option value="HSK603">Highly Skilled</option><option value="SKD604">Skilled</option><option value="SSK605">Semi-Skilled</option><option value="USK606">Unskilled</option></select></label>
+                    <label class="location-form-field"><span class="location-form-label">Employee Category</span><select data-employee-field="employee_category"><option value="">Select category</option><option value="MGT">Managerial / Supervisory</option><option value="ADM">Administrative / Clerical</option><option value="HSK">Highly Skilled</option><option value="SKD">Skilled</option><option value="SSK">Semi-Skilled</option><option value="USK">Unskilled</option></select></label>
                     <label class="location-form-field"><span class="location-form-label">Reporting Manager</span><select data-employee-field="reporting_manager_id"><option value="">No reporting manager selected</option><option value="IPL101-HQ-E1501">Ananya Sen</option><option value="IPL101-HQ-E1502">Rohit Basu</option><option value="SCP102-LKG-E1510">Meera Mukherjee</option><option value="SCP102-LKG-E1511">Subham Dutta</option></select></label>
                     <label class="location-form-field"><span class="location-form-label">Can Be Reporting Manager?</span><select data-employee-field="is_reporting_manager_eligible"><option value="false">No</option><option value="true">Yes</option></select></label>
                   </div>
@@ -1123,14 +1137,28 @@
                 <section class="entity-form-section" data-employee-section="4">
                   <div class="form-section-kicker">Step 5 of 10</div>
                   <h2 class="form-section-title">Address</h2>
-                  <p class="form-section-description">Capture address details without asking for address IDs or employee links.</p>
+                  <p class="form-section-description">Capture present and permanent address details.</p>
+                  <h3 class="form-subsection-title">Present Address</h3>
                   <div class="location-form-grid">
-                    <label class="location-form-field span-3"><span class="location-form-label">Present Address</span><input data-employee-field="present_address" placeholder="Enter present address"></label>
-                    <label class="location-form-field"><span class="location-form-label">City</span><input data-employee-field="address_city" placeholder="City"></label>
-                    <label class="location-form-field"><span class="location-form-label">State</span><input data-employee-field="address_state" placeholder="State"></label>
-                    <label class="location-form-field"><span class="location-form-label">Pincode</span><input data-employee-field="address_pincode" inputmode="numeric" placeholder="Pincode"></label>
-                    <label class="location-form-field"><span class="location-form-label">Permanent Same as Present?</span><select data-employee-field="same_as_present"><option value="true">Yes</option><option value="false">No</option></select></label>
-                    <label class="location-form-field span-2"><span class="location-form-label">Permanent Address</span><input data-employee-field="permanent_address" placeholder="Enter if different"></label>
+                    <label class="location-form-field"><span class="location-form-label">Pincode</span><input data-employee-field="address_pincode" id="employeePresentPincode" inputmode="numeric" placeholder="Enter pincode to auto-fill city & state"></label>
+                    <label class="location-form-field"><span class="location-form-label">City</span><select data-employee-field="address_city" id="employeePresentCity"><option value="">Select city (enter pincode first)</option></select></label>
+                    <label class="location-form-field"><span class="location-form-label">State</span><select data-employee-field="address_state" id="employeePresentState"><option value="">Select state</option></select></label>
+                    <label class="location-form-field span-2"><span class="location-form-label">Address</span><input data-employee-field="present_address" placeholder="Enter present address"></label>
+                  </div>
+                  <label class="location-form-field" style="margin-top:16px"><span class="location-form-label">Permanent Same as Present?</span>
+                    <select data-employee-field="same_as_present" id="employeeSameAsPresent">
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </label>
+                  <div id="employeePermanentAddressBlock" style="display:none">
+                    <h3 class="form-subsection-title">Permanent Address</h3>
+                    <div class="location-form-grid">
+                      <label class="location-form-field"><span class="location-form-label">Pincode</span><input data-employee-field="permanent_pincode" id="employeePermanentPincode" inputmode="numeric" placeholder="Enter pincode to auto-fill city & state"></label>
+                      <label class="location-form-field"><span class="location-form-label">City</span><select data-employee-field="permanent_city" id="employeePermanentCity"><option value="">Select city (enter pincode first)</option></select></label>
+                      <label class="location-form-field"><span class="location-form-label">State</span><select data-employee-field="permanent_state" id="employeePermanentState"><option value="">Select state</option></select></label>
+                      <label class="location-form-field span-2"><span class="location-form-label">Address</span><input data-employee-field="permanent_address" placeholder="Enter permanent address"></label>
+                    </div>
                   </div>
                 </section>
 
@@ -1943,6 +1971,25 @@
           <button class="button primary" id="publishRoster" type="button" hidden><i data-lucide="send"></i>Publish</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="rosterExportModal" role="dialog" aria-modal="true">
+    <div class="modal roster-export-modal">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">Export Published Rosters</h2>
+          <p class="modal-progress">Select one or more rosters to export as XLSX.</p>
+        </div>
+        <button class="icon-button" id="closeRosterExportModal" type="button" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="rosterExportList"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="button" id="cancelRosterExport" type="button">Cancel</button>
+        <button class="button primary" id="confirmRosterExport" type="button"><i data-lucide="download"></i>Export Selected</button>
+      </div>
     </div>
   </div>
 
