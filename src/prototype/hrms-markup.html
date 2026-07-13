@@ -614,6 +614,7 @@
             </article>
 
             <div class="location-form-actions">
+              <button class="button danger" id="deleteLocationForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
               <button class="button" id="cancelLocationForm" type="button">Cancel</button>
               <button class="button" id="backLocationStep" type="button">Back</button>
               <button class="button primary" id="nextLocationStep" type="button">Next</button>
@@ -664,6 +665,7 @@
               </div>
             </article>
             <div class="location-form-actions">
+              <button class="button danger" id="deleteDepartmentForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
               <button class="button" id="cancelDepartmentForm" type="button">Cancel</button>
               <button class="button primary" id="submitDepartmentForm" type="submit"><i data-lucide="save"></i></button>
             </div>
@@ -739,6 +741,7 @@
               </div>
             </article>
             <div class="location-form-actions">
+              <button class="button danger" id="deleteDesignationForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
               <button class="button" id="cancelDesignationForm" type="button">Cancel</button>
               <button class="button primary" id="submitDesignationForm" type="submit"><i data-lucide="save"></i></button>
             </div>
@@ -809,6 +812,7 @@
               </section>
             </div>
             <div class="location-form-actions" style="grid-column:1/-1">
+              <button class="button danger" id="deleteRoleForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
               <button class="button" id="cancelRoleForm" type="button">Cancel</button>
               <button class="button primary" id="submitRoleForm" type="submit"><i data-lucide="save"></i></button>
             </div>
@@ -1042,6 +1046,7 @@
             </article>
 
             <div class="location-form-actions">
+              <button class="button danger" id="deleteEntityForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
               <button class="button" id="cancelEntityForm" type="button">Cancel</button>
               <button class="button" id="backEntityStep" type="button">Back</button>
               <button class="button primary" id="nextEntityStep" type="button">Next</button>
@@ -1205,35 +1210,51 @@
                 <section class="entity-form-section" data-employee-section="8">
                   <div class="form-section-kicker">Step 9 of 10</div>
                   <h2 class="form-section-title">Documents, Skills & Shift Preference</h2>
-                  <p class="form-section-description">These are linked operational sections inside the employee workspace, not separate sidebar pages.</p>
+                  <p class="form-section-description">These are linked operational sections inside the employee workspace.</p>
+
+                  <h3 class="form-subsection-title" style="margin-top:18px;font-size:13px;font-weight:600;color:var(--text-primary)">Documents</h3>
                   <div class="location-form-grid">
-                    <label class="location-form-field"><span class="location-form-label">Primary Document Type</span><select data-employee-field="document_type"><option value="">Select document</option><option>Aadhaar</option><option>PAN</option><option>Offer Letter</option><option>Contract Agreement</option><option>Certificate</option></select></label>
+                    <label class="location-form-field"><span class="location-form-label">Document Type</span><select data-employee-field="document_type"><option value="">Select document</option><option>Aadhaar</option><option>PAN</option><option>Offer Letter</option><option>Contract Agreement</option><option>Certificate</option></select></label>
                     <label class="location-form-field"><span class="location-form-label">Document Number / Reference</span><input data-employee-field="document_number" placeholder="Enter document reference"></label>
+                    <label class="location-form-field"><span class="location-form-label">Document File</span><input type="file" data-employee-field="document_file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"></label>
                     <label class="location-form-field"><span class="location-form-label">Document Verification</span><select data-employee-field="document_status"><option value="">Select status</option><option>Pending</option><option>Verified</option><option>Rejected</option></select></label>
-                    <label class="location-form-field"><span class="location-form-label">Primary Skill / Certification</span><input data-employee-field="primary_skill" placeholder="Example: Grooming Level 1"></label>
-                    <label class="location-form-field"><span class="location-form-label">Skill Level</span><select data-employee-field="skill_level"><option value="">Select level</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option><option>Certified</option></select></label>
-                    <label class="location-form-field">
-                      <span class="location-form-label">Preferred Shift</span>
-                      <select data-employee-field="default_shift_id" id="employeePreferredShift">
-                        <option value="">Select assigned location first</option>
-                      </select>
-                      <div class="field-help">Shows active shifts for the assigned location only.</div>
-                    </label>
+                  </div>
+
+                  <h3 class="form-subsection-title" style="margin-top:18px;font-size:13px;font-weight:600;color:var(--text-primary)">Skills</h3>
+                  <div id="skillsContainer">
+                    <div class="skill-row" style="display:flex;gap:12px;align-items:end;margin-bottom:8px">
+                      <div style="flex:1;min-width:0">
+                        <label class="location-form-field" style="display:flex;flex-direction:column;gap:4px">
+                          <span class="location-form-label">Skill Name</span>
+                          <input data-skill-field="skill_name" placeholder="e.g. Grooming Level 1" style="width:100%;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-size:13px">
+                        </label>
+                      </div>
+                      <div style="flex:1;min-width:0">
+                        <label class="location-form-field" style="display:flex;flex-direction:column;gap:4px">
+                          <span class="location-form-label">Skill Level</span>
+                          <select data-skill-field="skill_level" style="width:100%;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-size:13px">
+                            <option value="">Select level</option>
+                            <option>Beginner</option>
+                            <option>Intermediate</option>
+                            <option>Advanced</option>
+                            <option>Certified</option>
+                          </select>
+                        </label>
+                      </div>
+                      <button type="button" class="button danger remove-skill-btn" style="white-space:nowrap;flex-shrink:0;margin-bottom:0" hidden>Remove</button>
+                    </div>
+                  </div>
+                  <button type="button" class="button" id="addSkillBtn" style="margin-top:2px"><i data-lucide="plus"></i>Add Skill</button>
+
+                  <h3 class="form-subsection-title" style="margin-top:18px;font-size:13px;font-weight:600;color:var(--text-primary)">Certifications</h3>
+                  <div id="certificationsContainer"></div>
+                  <button type="button" class="button" id="addCertBtn" style="margin-top:2px"><i data-lucide="plus"></i>Add Certification</button>
+
+                  <h3 class="form-subsection-title" style="margin-top:18px;font-size:13px;font-weight:600;color:var(--text-primary)">Shift Preference</h3>
+                  <div class="location-form-grid">
+                    <label class="location-form-field"><span class="location-form-label">Preferred Shift</span><select data-employee-field="default_shift_id" id="employeePreferredShift"><option value="">Select assigned location first</option></select><div class="field-help">Shows active shifts for the assigned location only.</div></label>
                     <label class="location-form-field"><span class="location-form-label">Shift Preference Type</span><select data-employee-field="shift_preference_mode"><option value="">Select preference</option><option>Fixed</option><option>Rotational</option><option>Flexible</option></select></label>
-                    <label class="location-form-field">
-                      <span class="location-form-label">Preferred Week Off Day</span>
-                      <select data-employee-field="preferred_week_off_day">
-                        <option value="">No preference</option>
-                        <option value="1">1 - Monday</option>
-                        <option value="2">2 - Tuesday</option>
-                        <option value="3">3 - Wednesday</option>
-                        <option value="4">4 - Thursday</option>
-                        <option value="5">5 - Friday</option>
-                        <option value="6">6 - Saturday</option>
-                        <option value="7">7 - Sunday</option>
-                      </select>
-                      <div class="field-help">Optional roster preference using ISO week day values.</div>
-                    </label>
+                    <label class="location-form-field"><span class="location-form-label">Preferred Week Off Day</span><select data-employee-field="preferred_week_off_day"><option value="">No preference</option><option value="1">1 - Monday</option><option value="2">2 - Tuesday</option><option value="3">3 - Wednesday</option><option value="4">4 - Thursday</option><option value="5">5 - Friday</option><option value="6">6 - Saturday</option><option value="7">7 - Sunday</option></select><div class="field-help">Optional roster preference using ISO week day values.</div></label>
                     <label class="location-form-field span-2"><span class="location-form-label">Restriction / Note</span><input data-employee-field="shift_restriction_note" placeholder="Optional scheduling note"></label>
                   </div>
                 </section>
@@ -1260,6 +1281,7 @@
             </div>
 
             <div class="location-form-actions">
+              <button class="button danger" id="deleteEmployeeForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
               <button class="button" id="cancelEmployeeForm" type="button">Cancel</button>
               <button class="button" id="saveEmployeeDraft" type="button">Save as Draft</button>
               <button class="button" id="backEmployeeStep" type="button">Back</button>
@@ -1346,6 +1368,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteLeaveTypeForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelLeaveTypeForm" type="button">Cancel</button>
         <button class="button primary" id="submitLeaveTypeForm" type="submit"><i data-lucide="save"></i>Save Leave Type</button>
       </div>
@@ -1376,6 +1399,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteLeavePolicyForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelLeavePolicyForm" type="button">Cancel</button>
         <button class="button primary" id="submitLeavePolicyForm" type="submit"><i data-lucide="save"></i>Save Policy</button>
       </div>
@@ -1400,6 +1424,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteVariantForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelVariantForm" type="button">Cancel</button>
         <button class="button primary" id="submitVariantForm" type="submit"><i data-lucide="save"></i>Save Variant</button>
       </div>
@@ -1425,6 +1450,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteAssignmentForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelAssignmentForm" type="button">Cancel</button>
         <button class="button primary" id="submitAssignmentForm" type="submit"><i data-lucide="save"></i>Save Assignment</button>
       </div>
@@ -1450,6 +1476,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteHolidayForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelHolidayForm" type="button">Cancel</button>
         <button class="button primary" id="submitHolidayForm" type="submit"><i data-lucide="save"></i>Save Holiday</button>
       </div>
@@ -1476,6 +1503,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteLeaveRequestForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelLeaveRequestForm" type="button">Cancel</button>
         <button class="button primary" id="submitLeaveRequestForm" type="submit"><i data-lucide="save"></i>Submit Request</button>
       </div>
@@ -1504,6 +1532,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteAttendanceForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelAttendanceForm" type="button">Cancel</button>
         <button class="button primary" id="submitAttendanceForm" type="submit"><i data-lucide="save"></i>Save Attendance</button>
       </div>
@@ -1528,6 +1557,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteRegularizationForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelRegularizationForm" type="button">Cancel</button>
         <button class="button primary" id="submitRegularizationForm" type="submit"><i data-lucide="save"></i>Submit Request</button>
       </div>
@@ -1552,6 +1582,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteShiftExceptionForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelShiftExceptionForm" type="button">Cancel</button>
         <button class="button primary" id="submitShiftExceptionForm" type="submit"><i data-lucide="save"></i>Save Exception</button>
       </div>
@@ -1577,6 +1608,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteCoLedgerForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelCoLedgerForm" type="button">Cancel</button>
         <button class="button primary" id="submitCoLedgerForm" type="submit"><i data-lucide="save"></i>Save CO Entry</button>
       </div>
@@ -1600,6 +1632,7 @@
         </div>
       </article>
       <div class="location-form-actions">
+        <button class="button danger" id="deleteAttendanceReportForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
         <button class="button" id="cancelAttendanceReportForm" type="button">Cancel</button>
         <button class="button primary" id="submitAttendanceReportForm" type="submit"><i data-lucide="save"></i>Save Report</button>
       </div>
@@ -1844,6 +1877,7 @@
           </section>
         </div>
         <div class="modal-footer">
+          <button class="button danger" id="deleteShiftPolicyForm" type="button" hidden><i data-lucide="trash-2"></i>Delete</button>
           <button class="button" id="cancelShiftPolicy" type="button">Cancel</button>
           <button class="button primary" type="submit"><i data-lucide="save"></i>Create Shift Policy</button>
         </div>
@@ -1989,6 +2023,20 @@
       <div class="modal-footer">
         <button class="button" id="cancelRosterExport" type="button">Cancel</button>
         <button class="button primary" id="confirmRosterExport" type="button"><i data-lucide="download"></i>Export Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+    <div class="modal confirm-modal">
+      <div class="modal-body confirm-modal-body">
+        <div class="confirm-icon"><i data-lucide="alert-triangle"></i></div>
+        <h3 class="confirm-title" id="confirmModalTitle">Are you sure?</h3>
+        <p class="confirm-message" id="confirmModalMessage">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer confirm-modal-footer">
+        <button class="button" id="confirmCancelBtn" type="button">Cancel</button>
+        <button class="button danger" id="confirmDeleteBtn" type="button"><i data-lucide="trash-2"></i>Delete</button>
       </div>
     </div>
   </div>

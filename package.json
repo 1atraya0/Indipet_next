@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.8.0",
     "lucide": "latest",
     "next": "latest",
     "pg": "^8.22.0",

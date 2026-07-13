@@ -76,3 +76,16 @@ export async function PATCH(request, { params }) {
     return Response.json({ message: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request, { params }) {
+  try {
+    const { id } = await params;
+    const result = await query(`DELETE FROM sub_location WHERE location_id = $1 RETURNING *`, [Number(id)]);
+    if (result.rows.length === 0) {
+      return Response.json({ message: "Location not found." }, { status: 404 });
+    }
+    return Response.json({ message: "Location deleted.", record: result.rows[0] });
+  } catch (error) {
+    return Response.json({ message: error.message }, { status: 500 });
+  }
+}

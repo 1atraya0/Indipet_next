@@ -355,9 +355,9 @@ const attendanceRecords = [];
             <div class="row-menu-wrap">
               <button class="row-menu-button" aria-label="Actions for ${record.name}"><i data-lucide="ellipsis"></i></button>
               <div class="row-menu">
-                <button data-row-action="view"><i data-lucide="eye"></i>View details</button>
-                <button data-row-action="edit"><i data-lucide="pencil"></i>Correct record</button>
-                <button data-row-action="history"><i data-lucide="history"></i>View history</button>
+                <button class="menu-item" data-row-action="view"><span class="menu-icon"><i data-lucide="eye"></i></span><span class="menu-text">View details</span></button>
+                <button class="menu-item" data-row-action="edit"><span class="menu-icon"><i data-lucide="pencil"></i></span><span class="menu-text">Correct record</span></button>
+                <button class="menu-item" data-row-action="history"><span class="menu-icon"><i data-lucide="history"></i></span><span class="menu-text">View history</span></button>
               </div>
             </div>
           </td>
@@ -1542,7 +1542,6 @@ const attendanceRecords = [];
         renderRosterControlCenter();
         return;
       }
-      restoreGenericModuleFilters();
       const search = $("#moduleSearch").value.trim().toLowerCase();
       const location = $("#moduleLocation").value;
       const status = $("#moduleStatus").value;
@@ -1578,8 +1577,8 @@ const attendanceRecords = [];
             <div class="row-menu-wrap">
               <button class="row-menu-button" aria-label="Record actions"><i data-lucide="ellipsis"></i></button>
               <div class="row-menu">
-                <button data-row-action="edit"><i data-lucide="pencil"></i>Edit record</button>
-                <button data-row-action="view"><i data-lucide="eye"></i>View details</button>
+                <button class="menu-item" data-row-action="edit"><span class="menu-icon"><i data-lucide="pencil"></i></span><span class="menu-text">Edit record</span></button>
+                <button class="menu-item" data-row-action="view"><span class="menu-icon"><i data-lucide="eye"></i></span><span class="menu-text">View details</span></button>
               </div>
             </div>
           </td>
@@ -3257,6 +3256,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("sub-location-form", mode === "edit" ? "edit" : "new", editingLocationId);
+      $("#deleteLocationForm").hidden = mode !== "edit";
       refreshIcons();
     }
 
@@ -3815,6 +3815,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("department-master-form", isEdit ? "edit" : "new", editingDepartmentId);
+      $("#deleteDepartmentForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -3907,6 +3908,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("designation-master-form", isEdit ? "edit" : "new", editingDesignationId);
+      $("#deleteDesignationForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4062,6 +4064,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("role-manager-form", isEdit ? "edit" : "new", editingRoleId);
+      $("#deleteRoleForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4087,6 +4090,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("leave-type-master-form", isEdit ? "edit" : "new", editingLeaveTypeId);
+      $("#deleteLeaveTypeForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4112,6 +4116,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("leave-policy-form", isEdit ? "edit" : "new", editingLeavePolicyId);
+      $("#deleteLeavePolicyForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4209,6 +4214,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("leave-requests-form", isEdit ? "edit" : "new", editingLeaveRequestId);
+      $("#deleteLeaveRequestForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4286,6 +4292,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("attendance-form", isEdit ? "edit" : "new", editingAttendanceId);
+      $("#deleteAttendanceForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4312,6 +4319,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("regularization-form", isEdit ? "edit" : "new", editingRegularizationId);
+      $("#deleteRegularizationForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4339,6 +4347,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("shift-exceptions-form", isEdit ? "edit" : "new", editingShiftExceptionId);
+      $("#deleteShiftExceptionForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4365,6 +4374,7 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("co-ledger-form", isEdit ? "edit" : "new", editingCoLedgerId);
+      $("#deleteCoLedgerForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4799,6 +4809,8 @@ const attendanceRecords = [];
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("entity-master-form", isEdit ? "edit" : "new", editingEntityId);
+      $("#submitEntityForm").innerHTML = `<i data-lucide="save"></i>${isEdit ? "Save Changes" : "Create Entity"}`;
+      $("#deleteEntityForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -4909,6 +4921,8 @@ const attendanceRecords = [];
             parentEntities[entityId] = updated.legal_name;
             selectedEntityId = entityId;
             resetEntityAccessFields();
+            await refreshModuleData("entity-master");
+            await refreshDashboardData();
             activatePage("entity-master");
             $("#moduleSearch").value = entityId;
             renderModule("entity-master");
@@ -4934,6 +4948,8 @@ const attendanceRecords = [];
 
           selectedEntityId = entityId;
           resetEntityAccessFields();
+          await refreshModuleData("entity-master");
+          await refreshDashboardData();
           activatePage("entity-master");
           $("#moduleSearch").value = entityId;
           renderModule("entity-master");
@@ -4987,7 +5003,7 @@ const attendanceRecords = [];
       { name: "Emergency Contact", section: 5, fields: ["emergency_contact_name", "emergency_relationship", "emergency_phone"] },
       { name: "Statutory & KYC", section: 6, fields: ["aadhaar_number", "pan_number"] },
       { name: "Finance", section: 7, fields: ["bank_name", "account_number", "ifsc_code"] },
-      { name: "Documents, Skills & Shift", section: 8, fields: ["document_type", "document_status", "primary_skill", "shift_preference_mode", "default_shift_id"] }
+      { name: "Documents, Skills & Shift", section: 8, fields: ["document_type", "document_status", "shift_preference_mode", "default_shift_id"] }
     ];
 
     function setEmployeeFormHeader(mode) {
@@ -5101,10 +5117,29 @@ const attendanceRecords = [];
         const permBlock = document.getElementById("employeePermanentAddressBlock");
         if (permBlock) permBlock.style.display = record.same_as_present === "false" ? "block" : "none";
       }
+      const skillContainer = $("#skillsContainer");
+      if (skillContainer) skillContainer.innerHTML = "";
+      const certContainer = $("#certificationsContainer");
+      if (certContainer) certContainer.innerHTML = "";
+      if (isEdit) {
+        if (record.skills && Array.isArray(record.skills) && record.skills.length) {
+          record.skills.forEach(s => addSkillRow(s));
+        } else if (record.primary_skill) {
+          addSkillRow({ skill_name: record.primary_skill, skill_level: record.skill_level || "" });
+        } else {
+          addSkillRow();
+        }
+        if (record.certifications && Array.isArray(record.certifications)) {
+          record.certifications.forEach(c => addCertRow(c));
+        }
+      } else {
+        addSkillRow();
+      }
       $("#submitEmployeeForm").innerHTML = `<i data-lucide="save"></i>${isEdit ? "Save Changes" : "Create Employee"}`;
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("employee-master-form", isEdit ? "edit" : "new", editingEmployeeId);
+      $("#deleteEmployeeForm").hidden = !isEdit;
       refreshIcons();
     }
 
@@ -5115,6 +5150,10 @@ const attendanceRecords = [];
       $('[data-employee-field="is_reporting_manager_eligible"]').value = "false";
       $('[data-employee-field="is_salesperson"]').value = "false";
       $('[data-employee-field="face_registered"]').value = "false";
+      const skillContainer = $("#skillsContainer");
+      if (skillContainer) skillContainer.innerHTML = "";
+      const certContainer = $("#certificationsContainer");
+      if (certContainer) certContainer.innerHTML = "";
       renderEmployeePreferredShiftOptions();
       clearEmployeeFormError();
       setEmployeeStep(0);
@@ -5150,6 +5189,7 @@ const attendanceRecords = [];
 
     function collectEmployeeRecord() {
       return $$("[data-employee-field]").reduce((record, field) => {
+        if (field.type === "file") return record;
         const key = field.dataset.employeeField;
         const sel = field.selectedOptions?.[0];
         if (key === "parent_entity_id" && sel?.dataset?.entityId) {
@@ -5172,6 +5212,146 @@ const attendanceRecords = [];
         }
         return record;
       }, {});
+    }
+
+    function collectSkillsData() {
+      return $$("#skillsContainer .skill-row").map(row => {
+        const name = row.querySelector("[data-skill-field='skill_name']")?.value?.trim() || "";
+        const level = row.querySelector("[data-skill-field='skill_level']")?.value || "";
+        return name ? { skill_name: name, skill_level: level } : null;
+      }).filter(Boolean);
+    }
+
+    function collectCertificationsData() {
+      return $$("#certificationsContainer .cert-row").map(row => {
+        const name = row.querySelector("[data-cert-field='certification_name']")?.value?.trim() || "";
+        const authority = row.querySelector("[data-cert-field='issuing_authority']")?.value?.trim() || "";
+        const issueDate = row.querySelector("[data-cert-field='issue_date']")?.value || "";
+        const expiryDate = row.querySelector("[data-cert-field='expiry_date']")?.value || "";
+        const fileInput = row.querySelector('[data-cert-field="certificate_file"]');
+        const hasNewFile = fileInput?.files?.length > 0;
+        const existingFile = row.dataset.existingCertFile || "";
+        const certificate_file = hasNewFile ? "" : existingFile;
+        return name ? { certification_name: name, issuing_authority: authority, issue_date: issueDate, expiry_date: expiryDate, certificate_file } : null;
+      }).filter(Boolean);
+    }
+
+    function renderSkillRow(skillData) {
+      const div = document.createElement("div");
+      div.className = "skill-row";
+      div.style.cssText = "display:flex;gap:12px;align-items:end;margin-bottom:8px";
+      div.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <label class="location-form-field" style="display:flex;flex-direction:column;gap:4px">
+            <span class="location-form-label">Skill Name</span>
+            <input data-skill-field="skill_name" placeholder="e.g. Grooming Level 1" value="${(skillData?.skill_name || "").replace(/"/g, "&quot;")}" style="width:100%;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-size:13px">
+          </label>
+        </div>
+        <div style="flex:1;min-width:0">
+          <label class="location-form-field" style="display:flex;flex-direction:column;gap:4px">
+            <span class="location-form-label">Skill Level</span>
+            <select data-skill-field="skill_level" style="width:100%;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-size:13px">
+              <option value="">Select level</option>
+              <option ${skillData?.skill_level === "Beginner" ? "selected" : ""}>Beginner</option>
+              <option ${skillData?.skill_level === "Intermediate" ? "selected" : ""}>Intermediate</option>
+              <option ${skillData?.skill_level === "Advanced" ? "selected" : ""}>Advanced</option>
+              <option ${skillData?.skill_level === "Certified" ? "selected" : ""}>Certified</option>
+            </select>
+          </label>
+        </div>
+        <button type="button" class="button danger remove-skill-btn" style="white-space:nowrap;flex-shrink:0;margin-bottom:0">Remove</button>
+      `;
+      return div;
+    }
+
+    function renderCertRow(certData) {
+      const existingFile = certData?.certificate_file || "";
+      const div = document.createElement("div");
+      div.className = "cert-row";
+      div.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:8px";
+      div.innerHTML = `
+        <div>
+          <span class="location-form-label">Certification Name</span>
+          <input data-cert-field="certification_name" placeholder="e.g. Pet CPR" value="${(certData?.certification_name || "").replace(/"/g, "&quot;")}" style="width:100%;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-size:13px">
+        </div>
+        <div>
+          <span class="location-form-label">Issuing Authority</span>
+          <input data-cert-field="issuing_authority" placeholder="e.g. Red Cross" value="${(certData?.issuing_authority || "").replace(/"/g, "&quot;")}" style="width:100%;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-size:13px">
+        </div>
+        <div>
+          <span class="location-form-label">Issue Date</span>
+          <input type="date" data-cert-field="issue_date" value="${certData?.issue_date || ""}" style="width:100%;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-size:13px">
+        </div>
+        <div>
+          <span class="location-form-label">Expiry Date</span>
+          <input type="date" data-cert-field="expiry_date" value="${certData?.expiry_date || ""}" style="width:100%;padding:8px 12px;border:1px solid var(--border-strong);border-radius:6px;font-size:13px">
+        </div>
+        <div>
+          <span class="location-form-label">Certificate File</span>
+          <input type="file" data-cert-field="certificate_file" accept=".pdf,.jpg,.jpeg,.png" style="width:100%">
+          ${existingFile ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">Current: ${existingFile}</div>` : ""}
+        </div>
+        <div style="display:flex;align-items:end;justify-content:end">
+          <button type="button" class="button danger remove-cert-btn">Remove</button>
+        </div>
+      `;
+      if (existingFile) div.dataset.existingCertFile = existingFile;
+      return div;
+    }
+
+    function addSkillRow(skillData) {
+      const container = $("#skillsContainer");
+      if (!container) return;
+      const row = renderSkillRow(skillData);
+      container.appendChild(row);
+      const removeBtn = row.querySelector(".remove-skill-btn");
+      if (removeBtn) {
+        removeBtn.addEventListener("click", () => {
+          row.remove();
+          updateEmployeeReadiness();
+        });
+      }
+      $$("[data-employee-field]").forEach(f => { f.dispatchEvent(new Event("change")); });
+    }
+
+    function addCertRow(certData) {
+      const container = $("#certificationsContainer");
+      if (!container) return;
+      const row = renderCertRow(certData);
+      container.appendChild(row);
+      const removeBtn = row.querySelector(".remove-cert-btn");
+      if (removeBtn) {
+        removeBtn.addEventListener("click", () => {
+          row.remove();
+          updateEmployeeReadiness();
+        });
+      }
+    }
+
+    async function uploadFile(file) {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error("File upload failed");
+      const data = await res.json();
+      return data.url;
+    }
+
+    async function uploadEmployeeFiles(record) {
+      const docFileInput = document.querySelector('[data-employee-field="document_file"]');
+      if (docFileInput?.files?.length) {
+        record.document_file = await uploadFile(docFileInput.files[0]);
+      }
+      const certs = collectCertificationsData();
+      for (let i = 0; i < certs.length; i++) {
+        const row = document.querySelectorAll("#certificationsContainer .cert-row")[i];
+        const fileInput = row?.querySelector('[data-cert-field="certificate_file"]');
+        if (fileInput?.files?.length) {
+          certs[i].certificate_file = await uploadFile(fileInput.files[0]);
+        }
+      }
+      record.certifications = certs;
+      record.skills = collectSkillsData();
     }
 
     function generateEmployeeId(record) {
@@ -5294,8 +5474,8 @@ const attendanceRecords = [];
         esi_number: "", nominee_name: "",
         bank_name: "", branch_name: "", account_number: "", ifsc_code: "",
         bank_verification_status: "",
-        document_type: "", document_number: "", document_status: "",
-        primary_skill: "", skill_level: "",
+    document_type: "", document_number: "", document_file: "", document_status: "",
+    primary_skill: "", skill_level: "", skills: [], certifications: [],
         login_id: "", role_id: "", is_salesperson: "false", face_registered: "false",
         default_shift_id: "", shift_preference_mode: "", preferred_week_off_day: "",
         shift_restriction_note: ""
@@ -5322,8 +5502,22 @@ const attendanceRecords = [];
       const mode = window.IndipetHRMS?.dataMode;
       let employeeCode;
 
+      await uploadEmployeeFiles(record);
+
       if (mode === "api" && api) {
         const payload = { ...record };
+        delete payload.skills;
+        delete payload.certifications;
+        if (record.skills && record.skills.length) {
+          payload.skills = record.skills;
+          if (record.skills[0]?.skill_name) {
+            payload.primary_skill = record.skills[0].skill_name;
+            payload.skill_level = record.skills[0].skill_level;
+          }
+        }
+        if (record.certifications && record.certifications.length) {
+          payload.certifications = record.certifications;
+        }
         if (asDraft) payload.status = "Draft";
         if (editingEmployeeId) {
           const updated = await fetch(`/api/employees/${editingEmployeeId}`, {
@@ -5388,6 +5582,8 @@ const attendanceRecords = [];
         String(pageConfig["employee-master"].rows.filter(row => row[4] === "Complete").length),
         String(pageConfig["employee-master"].rows.filter(row => row[4] !== "Complete").length)
       ];
+      await refreshModuleData("employee-master");
+      await refreshDashboardData();
       selectedEmployeeId = employeeCode;
       activatePage("employee-master");
       $("#moduleSearch").value = employeeCode;
@@ -5411,6 +5607,286 @@ const attendanceRecords = [];
       }
       parent.classList.toggle("is-open", shouldOpen);
       children.classList.toggle("is-open", shouldOpen);
+    }
+
+    async function refreshModuleData(pageKey) {
+      const api = window.IndipetHRMS?.api;
+      const mode = window.IndipetHRMS?.dataMode;
+      if (mode !== "api" || !api) return;
+      try {
+        switch (pageKey) {
+          case "entity-master": {
+            const entities = await api.entities.list();
+            entityMasterData = entities;
+            const config = pageConfig["entity-master"];
+            config.rows = entities.map(e => [
+              e.entity_code || String(e.entity_id),
+              e.legal_name,
+              e.entity_type ? e.entity_type.charAt(0).toUpperCase() + e.entity_type.slice(1) : "",
+              e.entity_role ? e.entity_role.charAt(0).toUpperCase() + e.entity_role.slice(1) : "",
+              e.status
+            ]);
+            config.values = [
+              String(entities.length),
+              String(entities.filter(e => e.entity_role === "franchisee").length),
+              String(subLocations.length)
+            ];
+            parentEntities = {};
+            entities.forEach(e => {
+              parentEntities[e.entity_code || String(e.entity_id)] = e.legal_name;
+            });
+            break;
+          }
+          case "sub-location": {
+            const locations = await api.locations.list();
+            subLocations.length = 0;
+            locations.forEach(dbLoc => {
+              subLocations.push(mapDbLocationToSubLocation(dbLoc));
+            });
+            pageConfig["entity-master"].values[2] = String(subLocations.length);
+            break;
+          }
+          case "department-master": {
+            const departments = await api.departments.list();
+            departmentMasterData = departments;
+            const cfg = pageConfig["department-master"];
+            cfg.rows = departments.map(mapDbRowToDepartmentRow);
+            cfg.values[0] = String(cfg.rows.length);
+            cfg.values[1] = String(cfg.rows.filter(r => r[4] === "Yes").length);
+            break;
+          }
+          case "designation-master": {
+            const designations = await api.designations.list();
+            designationMasterData = designations;
+            const cfg = pageConfig["designation-master"];
+            cfg.rows = designations.map(mapDbRowToDesignationRow);
+            cfg.values[0] = String(cfg.rows.length);
+            cfg.values[1] = String(cfg.rows.filter(r => r[4] === "Yes").length);
+            break;
+          }
+          case "role-manager": {
+            const roles = await api.roles.list();
+            roleMasterData = roles;
+            const cfg = pageConfig["role-manager"];
+            cfg.rows = roles.map(mapDbRowToRoleRow);
+            cfg.values[0] = String(cfg.rows.length);
+            cfg.values[1] = String(cfg.rows.filter(r => r[3] !== "0").length);
+            break;
+          }
+          case "employee-master": {
+            const employees = await api.employees.list();
+            employeeMasterData = employees;
+            const cfg = pageConfig["employee-master"];
+            cfg.rows = employees.map(mapDbRowToEmployeeRow);
+            keyholderEmployees.splice(0, keyholderEmployees.length, ...employees.map(emp => {
+              const loc = subLocations.find(l => l.dbId === emp.location_id);
+              return {
+                id: emp.employee_id,
+                code: emp.employee_code || String(emp.employee_id),
+                name: `${emp.first_name || ""} ${emp.last_name || ""}`.trim(),
+                locationId: loc ? loc.id : String(emp.location_id),
+                status: emp.status || "Active",
+                keyholderEligible: Boolean(emp.is_keyholder_eligible)
+              };
+            }));
+            cfg.values = [
+              String(cfg.rows.length),
+              String(cfg.rows.filter(r => r[4] === "Complete").length),
+              String(cfg.rows.filter(r => r[4] !== "Complete").length)
+            ];
+            break;
+          }
+          case "leave-type-master": {
+            const leaveTypes = await api.leaveTypes.list();
+            leaveTypeData = leaveTypes;
+            const cfg = pageConfig["leave-type-master"];
+            cfg.rows = leaveTypes.map(mapDbRowToLeaveTypeRow);
+            cfg.values[0] = String(leaveTypes.length);
+            cfg.values[1] = String(leaveTypes.filter(t => t.is_paid).length);
+            break;
+          }
+          case "leave-policy": {
+            const policies = await api.leavePolicies.list();
+            leavePolicyData = policies;
+            const cfg = pageConfig["leave-policy"];
+            cfg.rows = policies.map(mapDbRowToLeavePolicyRow);
+            cfg.values[0] = String(policies.length);
+            break;
+          }
+          case "policy-variants": {
+            const variants = await api.policyVariants.list();
+            const cfg = pageConfig["policy-variants"];
+            cfg.rows = variants.map(mapDbRowToPolicyVariantRow);
+            cfg.values[0] = String(variants.length);
+            break;
+          }
+          case "policy-assignments": {
+            const assignments = await api.policyAssignments.list();
+            const cfg = pageConfig["policy-assignments"];
+            cfg.rows = assignments.map(mapDbRowToPolicyAssignmentRow);
+            cfg.values[0] = String(assignments.length);
+            break;
+          }
+          case "holiday-calendar": {
+            const holidays = await api.holidayCalendar.list();
+            const cfg = pageConfig["holiday-calendar"];
+            cfg.rows = holidays.map(mapDbRowToHolidayRow);
+            cfg.values[0] = String(holidays.length);
+            break;
+          }
+          case "leave-requests": {
+            const requests = await api.leaveRequests.list();
+            leaveRequestData = requests;
+            const cfg = pageConfig["leave-requests"];
+            cfg.rows = requests.map(mapDbRowToLeaveRequestRow);
+            cfg.values[0] = String(requests.length);
+            break;
+          }
+          case "attendance-list": {
+            const [dashData, attendanceRows] = await Promise.all([
+              api.attendance.dashboard().catch(() => null),
+              api.attendance.list().catch(() => [])
+            ]);
+            if (dashData) {
+              attendanceRecords.splice(0, attendanceRecords.length, ...(dashData.records || []));
+            }
+            attendanceData = attendanceRows;
+            const cfg = pageConfig["attendance-list"];
+            cfg.rows = attendanceRows.map(mapDbRowToAttendanceRow);
+            cfg.values = [
+              String(cfg.rows.filter(r => r[4] === "Present").length),
+              String(cfg.rows.filter(r => r[4] === "Late").length),
+              String(cfg.rows.filter(r => r[4] === "Absent").length)
+            ];
+            break;
+          }
+          case "regularization": {
+            const rows = await api.regularization.list().catch(() => []);
+            regularizationData = rows;
+            const cfg = pageConfig["regularization"];
+            cfg.rows = rows.map(mapDbRowToRegularizationRow);
+            cfg.values = [
+              String(cfg.rows.filter(r => r[4] === "Pending").length),
+              String(cfg.rows.filter(r => r[4] === "Approved").length),
+              String(cfg.rows.filter(r => r[4] === "Rejected").length)
+            ];
+            break;
+          }
+          case "shift-exceptions": {
+            const rows = await api.shiftExceptions.list().catch(() => []);
+            shiftExceptionData = rows;
+            const cfg = pageConfig["shift-exceptions"];
+            cfg.rows = rows.map(mapDbRowToShiftExceptionRow);
+            cfg.values = [
+              String(cfg.rows.filter(r => r[4] === "Open").length),
+              String(cfg.rows.filter(r => r[4] === "Critical").length),
+              String(cfg.rows.filter(r => r[4] === "Resolved").length)
+            ];
+            break;
+          }
+          case "co-ledger": {
+            const rows = await api.coLedger.list().catch(() => []);
+            coLedgerData = rows;
+            const cfg = pageConfig["co-ledger"];
+            cfg.rows = rows.map(mapDbRowToCoLedgerRow);
+            cfg.values = [
+              String(cfg.rows.filter(r => r[4] === "Available").length),
+              "0",
+              String(cfg.rows.filter(r => r[4] === "Expired").length)
+            ];
+            break;
+          }
+          case "attendance-reports": {
+            const rows = await api.attendanceReports.list().catch(() => []);
+            const cfg = pageConfig["attendance-reports"];
+            cfg.rows = rows.map(mapDbRowToAttendanceReportRow);
+            cfg.values = [
+              String(cfg.rows.length),
+              "0",
+              "0"
+            ];
+            break;
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to refresh data for ${pageKey}:`, err);
+      }
+    }
+
+    async function refreshDashboardData() {
+      const api = window.IndipetHRMS?.api;
+      const mode = window.IndipetHRMS?.dataMode;
+      if (mode !== "api" || !api) return;
+      try {
+        const dashData = await api.attendance.dashboard().catch(() => null);
+        if (dashData) {
+          const el = id => document.getElementById(id);
+          if (el("kpiWorkforceValue")) el("kpiWorkforceValue").textContent = dashData.activeWorkforce;
+          if (el("kpiWorkforceTrend")) el("kpiWorkforceTrend").textContent = `${dashData.activeEntities} entities`;
+          if (el("kpiPresentValue")) el("kpiPresentValue").textContent = dashData.presentToday ?? "0";
+          if (el("kpiPresentTrend")) el("kpiPresentTrend").textContent = `of ${dashData.totalActive ?? 0} active`;
+          if (el("kpiApprovalsValue")) el("kpiApprovalsValue").textContent = dashData.pendingApprovals ?? "0";
+          if (el("kpiApprovalsTrend")) el("kpiApprovalsTrend").textContent = "pending";
+          if (el("kpiRosterValue")) el("kpiRosterValue").textContent = dashData.rosterCoverage ?? "--";
+          if (el("kpiRosterTrend")) el("kpiRosterTrend").textContent = "filled";
+          if (dashData.weeklyData) {
+            weeklyData.splice(0, weeklyData.length, ...dashData.weeklyData);
+          }
+          renderWeeklyChart();
+          renderAttendance();
+          updatePresentTodayKPI();
+        }
+      } catch (err) {
+        console.warn("Failed to refresh dashboard:", err);
+      }
+    }
+
+    function showConfirmDialog(message) {
+      return new Promise(resolve => {
+        const modal = $("#confirmModal");
+        const messageEl = $("#confirmModalMessage");
+        const confirmBtn = $("#confirmDeleteBtn");
+        const cancelBtn = $("#confirmCancelBtn");
+        if (!modal) { resolve(true); return; }
+
+        messageEl.textContent = message;
+        const titleEl = $("#confirmModalTitle");
+        if (titleEl) titleEl.textContent = "Are you sure?";
+
+        modal.classList.add("is-open");
+
+        const close = result => {
+          modal.classList.remove("is-open");
+          document.removeEventListener("keydown", onEscape);
+          confirmBtn.removeEventListener("click", onConfirm);
+          cancelBtn.removeEventListener("click", onCancel);
+          resolve(result);
+        };
+        const onConfirm = () => close(true);
+        const onCancel = () => close(false);
+        const onEscape = e => { if (e.key === "Escape") close(false); };
+        confirmBtn.addEventListener("click", onConfirm);
+        cancelBtn.addEventListener("click", onCancel);
+        modal.addEventListener("click", e => { if (e.target === modal) close(false); });
+        document.addEventListener("keydown", onEscape);
+      });
+    }
+
+    async function confirmAndDelete({ endpoint, id, dataArray, pageKey, recordIdField }) {
+      const confirmed = await showConfirmDialog("Are you sure you want to delete this record? This action cannot be undone.");
+      if (!confirmed) return;
+      try {
+        const api = window.IndipetHRMS?.api;
+        if (api) {
+          await fetch(endpoint, { method: "DELETE" });
+        }
+        await refreshModuleData(pageKey);
+        activatePage(pageKey);
+        renderModule(pageKey);
+        showToast("Record deleted successfully.");
+      } catch (error) {
+        showToast(error.message || "Failed to delete the record.");
+      }
     }
 
     function activatePage(pageKey) {
@@ -5444,6 +5920,7 @@ const attendanceRecords = [];
         $('[data-page="dashboard"]').classList.add("is-active");
         $("#dashboardView").classList.add("is-active");
         setPageHeader("Dashboard", "Operations Dashboard", "Monitor today's workforce, roster coverage, leave decisions and attendance exceptions across Indipet locations.", "Add Employee", "user-plus");
+        (async () => { await refreshDashboardData(); })();
       } else if (pageKey === "sub-location") {
         const target = $('.nav-child[data-page="sub-location"]');
         target.classList.add("is-active");
@@ -5546,6 +6023,62 @@ const attendanceRecords = [];
     function closeMobileMenu() {
       $("#sidebar").classList.remove("is-mobile-open");
       $("#mobileBackdrop").classList.remove("is-open");
+    }
+
+    function toggleRowMenu(trigger) {
+      const existing = document.querySelector(".floating-dropdown");
+      if (existing) {
+        const sameTrigger = existing.dataset.triggerId === String($$(".row-menu-button").indexOf(trigger));
+        closeFloatingDropdown();
+        if (sameTrigger) return;
+      }
+
+      const rowMenu = trigger.closest("tr")?.querySelector(".row-menu");
+      if (!rowMenu || !rowMenu.querySelector("[data-row-action]")) return;
+
+      const el = document.createElement("div");
+      el.className = "floating-dropdown";
+      el.innerHTML = [...rowMenu.querySelectorAll("[data-row-action]")].map(btn => {
+        const iconHtml = btn.querySelector(".menu-icon")?.innerHTML || "";
+        const text = btn.querySelector(".menu-text")?.textContent || btn.textContent.trim();
+        return `<button class="menu-item" data-row-action="${btn.dataset.rowAction}">
+          <span class="menu-icon">${iconHtml}</span>
+          <span class="menu-text">${text}</span>
+        </button>`;
+      }).join("");
+      el.dataset.triggerId = String($$(".row-menu-button").indexOf(trigger));
+
+      document.body.appendChild(el);
+
+      const rect = trigger.getBoundingClientRect();
+      const mw = 172, mh = el.offsetHeight || 140;
+      let top = rect.bottom + 6, right = window.innerWidth - rect.right;
+      if (rect.bottom + 6 + mh > window.innerHeight) {
+        top = rect.top - mh - 6;
+        el.classList.add("is-from-top");
+      }
+      if (top < 8) top = 8;
+      if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
+      if (right + mw > window.innerWidth - 8) right = window.innerWidth - mw - 8;
+      if (right < 8) right = 8;
+      el.style.right = right + "px";
+      el.style.top = top + "px";
+
+      requestAnimationFrame(() => el.classList.add("is-open"));
+
+      el.addEventListener("click", function onItemClick(e) {
+        const item = e.target.closest("[data-row-action]");
+        if (!item) return;
+        closeFloatingDropdown();
+        rowMenu.querySelector(`[data-row-action="${item.dataset.rowAction}"]`)?.click();
+      });
+    }
+
+    function closeFloatingDropdown() {
+      const el = document.querySelector(".floating-dropdown");
+      if (!el) return;
+      el.classList.remove("is-open");
+      el.remove();
     }
 
     $$(".nav-parent").forEach(parent => {
@@ -6170,24 +6703,19 @@ const attendanceRecords = [];
     $(".records-body", attendanceCard).addEventListener("click", event => {
       const menuButton = event.target.closest(".row-menu-button");
       if (menuButton) {
-        const menu = $(".row-menu", menuButton.parentElement);
-        $$(".row-menu").forEach(item => {
-          if (item !== menu) item.classList.remove("is-open");
-        });
-        menu.classList.toggle("is-open");
+        toggleRowMenu(menuButton);
         return;
       }
       const action = event.target.closest("[data-row-action]");
       if (action) {
         const row = action.closest("tr");
-        $(".row-menu", row).classList.remove("is-open");
         if (action.dataset.rowAction === "edit") {
-          const recordId = row.dataset.recordId;
+          const recordId = row?.dataset.recordId;
           const record = attendanceRecords.find(r => String(r.id) === String(recordId));
           openAttendanceForm(record);
           return;
         }
-        showToast(`${action.textContent.trim()} opened for ${row.dataset.recordId}.`);
+        showToast(`${action.textContent.trim()} opened for ${row?.dataset.recordId}.`);
       }
     });
 
@@ -6557,18 +7085,12 @@ const attendanceRecords = [];
       }
       const menuButton = event.target.closest(".row-menu-button");
       if (menuButton) {
-        const menu = menuButton.parentElement.querySelector(".row-menu");
-        $$(".row-menu").forEach(item => {
-          if (item !== menu) item.classList.remove("is-open");
-        });
-        if (menu) menu.classList.toggle("is-open");
+        toggleRowMenu(menuButton);
         return;
       }
       const action = event.target.closest("[data-row-action]");
       if (action) {
         const rowEl = action.closest("tr");
-        const rowMenu = rowEl?.querySelector(".row-menu");
-        if (rowMenu) rowMenu.classList.remove("is-open");
         const rowIndex = Number(rowEl?.dataset?.rowIndex);
         const config = pageConfig[activePage];
         const rowData = config?.rows?.[rowIndex];
@@ -6700,6 +7222,10 @@ const attendanceRecords = [];
     });
 
     $("#cancelLocationForm").addEventListener("click", () => activatePage("sub-location"));
+    $("#deleteLocationForm").addEventListener("click", () => {
+      const loc = getSelectedLocation();
+      confirmAndDelete({ endpoint: `/api/locations/${loc?.dbId || editingLocationId}`, id: loc?.dbId || editingLocationId, dataArray: subLocations, pageKey: "sub-location", recordIdField: "dbId" });
+    });
     $("#backLocationStep").addEventListener("click", () => setLocationStep(activeLocationStep - 1));
     $("#nextLocationStep").addEventListener("click", () => setLocationStep(activeLocationStep + 1));
     $("#locationForm").addEventListener("submit", async event => {
@@ -6757,6 +7283,7 @@ const attendanceRecords = [];
 
         activeLocationTab = "overview";
         $("#locationSearch").value = "";
+        await refreshModuleData("sub-location");
         activatePage("sub-location");
         showToast(locationFormMode === "edit"
           ? `${record.location_name} updated successfully.`
@@ -6767,8 +7294,10 @@ const attendanceRecords = [];
     });
 
     $("#cancelDepartmentForm").addEventListener("click", () => activatePage("department-master"));
+    $("#deleteDepartmentForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/departments/${editingDepartmentId}`, id: editingDepartmentId, dataArray: departmentMasterData, pageKey: "department-master", recordIdField: "department_id" }));
 
     $("#cancelDesignationForm").addEventListener("click", () => activatePage("designation-master"));
+    $("#deleteDesignationForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/designations/${editingDesignationId}`, id: editingDesignationId, dataArray: designationMasterData, pageKey: "designation-master", recordIdField: "designation_id" }));
 
     $("#designationForm").addEventListener("submit", async event => {
       event.preventDefault();
@@ -6848,11 +7377,13 @@ const attendanceRecords = [];
         return;
       }
       editingDesignationId = null;
+      await refreshModuleData("designation-master");
       activatePage("designation-master");
       renderModule("designation-master");
     });
 
     $("#cancelRoleForm").addEventListener("click", () => activatePage("role-manager"));
+    $("#deleteRoleForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/roles/${editingRoleId}`, id: editingRoleId, dataArray: roleMasterData, pageKey: "role-manager", recordIdField: "role_id" }));
 
     $("#roleForm").addEventListener("submit", async event => {
       event.preventDefault();
@@ -6929,6 +7460,7 @@ const attendanceRecords = [];
         return;
       }
       editingRoleId = null;
+      await refreshModuleData("role-manager");
       activatePage("role-manager");
       renderModule("role-manager");
     });
@@ -6972,15 +7504,22 @@ const attendanceRecords = [];
 
     // ---- Leave Management Cancel Buttons ----
     $("#cancelLeaveTypeForm").addEventListener("click", () => activatePage("leave-type-master"));
+    $("#deleteLeaveTypeForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/leave-types/${editingLeaveTypeId}`, id: editingLeaveTypeId, dataArray: leaveTypeData, pageKey: "leave-type-master", recordIdField: "leave_type_id" }));
     $("#cancelLeavePolicyForm").addEventListener("click", () => activatePage("leave-policy"));
+    $("#deleteLeavePolicyForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/leave-policies/${editingLeavePolicyId}`, id: editingLeavePolicyId, dataArray: leavePolicyData, pageKey: "leave-policy", recordIdField: "policy_id" }));
     $("#cancelVariantForm").addEventListener("click", () => activatePage("policy-variants"));
     $("#cancelAssignmentForm").addEventListener("click", () => activatePage("policy-assignments"));
     $("#cancelHolidayForm").addEventListener("click", () => activatePage("holiday-calendar"));
     $("#cancelLeaveRequestForm").addEventListener("click", () => activatePage("leave-requests"));
+    $("#deleteLeaveRequestForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/leave-requests/${editingLeaveRequestId}`, id: editingLeaveRequestId, dataArray: leaveRequestData, pageKey: "leave-requests", recordIdField: "request_id" }));
     $("#cancelAttendanceForm").addEventListener("click", () => activatePage("attendance-list"));
+    $("#deleteAttendanceForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/attendance/${editingAttendanceId}`, id: editingAttendanceId, dataArray: attendanceData, pageKey: "attendance-list", recordIdField: "attendance_id" }));
     $("#cancelRegularizationForm").addEventListener("click", () => activatePage("regularization"));
+    $("#deleteRegularizationForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/regularization/${editingRegularizationId}`, id: editingRegularizationId, dataArray: regularizationData, pageKey: "regularization", recordIdField: "request_id" }));
     $("#cancelShiftExceptionForm").addEventListener("click", () => activatePage("shift-exceptions"));
+    $("#deleteShiftExceptionForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/shift-exceptions/${editingShiftExceptionId}`, id: editingShiftExceptionId, dataArray: shiftExceptionData, pageKey: "shift-exceptions", recordIdField: "exception_id" }));
     $("#cancelCoLedgerForm").addEventListener("click", () => activatePage("co-ledger"));
+    $("#deleteCoLedgerForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/co-ledger/${editingCoLedgerId}`, id: editingCoLedgerId, dataArray: coLedgerData, pageKey: "co-ledger", recordIdField: "entry_id" }));
     $("#cancelAttendanceReportForm").addEventListener("click", () => activatePage("attendance-reports"));
 
     // ---- Leave Type Form ----
@@ -7030,6 +7569,7 @@ const attendanceRecords = [];
           }
         }
         editingLeaveTypeId = null;
+        await refreshModuleData("leave-type-master");
         activatePage("leave-type-master"); renderModule("leave-type-master");
       } catch (error) { showToast(error.message || "Could not save leave type.", "error"); }
     });
@@ -7081,6 +7621,7 @@ const attendanceRecords = [];
           }
         }
         editingLeavePolicyId = null;
+        await refreshModuleData("leave-policy");
         activatePage("leave-policy"); renderModule("leave-policy");
       } catch (error) { showToast(error.message || "Could not save policy.", "error"); }
     });
@@ -7109,6 +7650,7 @@ const attendanceRecords = [];
           config.values[0] = String(config.rows.length);
           showToast(`${record.variant_name} created.`);
         }
+        await refreshModuleData("policy-variants");
         activatePage("policy-variants"); renderModule("policy-variants");
       } catch (error) { showToast(error.message || "Could not save variant.", "error"); }
     });
@@ -7133,6 +7675,7 @@ const attendanceRecords = [];
           config.values[0] = String(config.rows.length);
           showToast(`Assignment created.`);
         }
+        await refreshModuleData("policy-assignments");
         activatePage("policy-assignments"); renderModule("policy-assignments");
       } catch (error) { showToast(error.message || "Could not save assignment.", "error"); }
     });
@@ -7157,6 +7700,7 @@ const attendanceRecords = [];
           config.values[0] = String(config.rows.length);
           showToast(`${record.holiday_name} added.`);
         }
+        await refreshModuleData("holiday-calendar");
         activatePage("holiday-calendar"); renderModule("holiday-calendar");
       } catch (error) { showToast(error.message || "Could not save holiday.", "error"); }
     });
@@ -7182,6 +7726,7 @@ const attendanceRecords = [];
           config.values[0] = String(config.rows.length);
           showToast(`Leave request submitted.`);
         }
+        await refreshModuleData("leave-requests");
         activatePage("leave-requests"); renderModule("leave-requests");
       } catch (error) { showToast(error.message || "Could not submit leave request.", "error"); }
     });
@@ -7332,6 +7877,8 @@ const attendanceRecords = [];
           }
         }
         editingAttendanceId = null;
+        await refreshModuleData("attendance-list");
+        await refreshDashboardData();
         activatePage("attendance-list"); renderModule("attendance-list");
       } catch (error) { showToast(error.message || "Could not save attendance.", "error"); }
     });
@@ -7385,6 +7932,7 @@ const attendanceRecords = [];
           }
         }
         editingRegularizationId = null;
+        await refreshModuleData("regularization");
         activatePage("regularization"); renderModule("regularization");
       } catch (error) { showToast(error.message || "Could not submit request.", "error"); }
     });
@@ -7438,6 +7986,7 @@ const attendanceRecords = [];
           }
         }
         editingShiftExceptionId = null;
+        await refreshModuleData("shift-exceptions");
         activatePage("shift-exceptions"); renderModule("shift-exceptions");
       } catch (error) { showToast(error.message || "Could not save exception.", "error"); }
     });
@@ -7490,6 +8039,7 @@ const attendanceRecords = [];
           }
         }
         editingCoLedgerId = null;
+        await refreshModuleData("co-ledger");
         activatePage("co-ledger"); renderModule("co-ledger");
       } catch (error) { showToast(error.message || "Could not save CO entry.", "error"); }
     });
@@ -7514,6 +8064,7 @@ const attendanceRecords = [];
           config.values[0] = String(config.rows.length);
           showToast(`Report saved.`);
         }
+        await refreshModuleData("attendance-reports");
         activatePage("attendance-reports"); renderModule("attendance-reports");
       } catch (error) { showToast(error.message || "Could not save report.", "error"); }
     });
@@ -7597,11 +8148,13 @@ const attendanceRecords = [];
         return;
       }
       editingDepartmentId = null;
+      await refreshModuleData("department-master");
       activatePage("department-master");
       renderModule("department-master");
     });
 
     $("#cancelEntityForm").addEventListener("click", () => activatePage("entity-master"));
+    $("#deleteEntityForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/entities/${editingEntityId}`, id: editingEntityId, dataArray: entityMasterData, pageKey: "entity-master", recordIdField: "entity_id" }));
     $("#backEntityStep").addEventListener("click", () => setEntityStep(activeEntityStep - 1));
     $("#nextEntityStep").addEventListener("click", () => setEntityStep(activeEntityStep + 1));
     $("#entityStepper").addEventListener("click", event => {
@@ -7779,6 +8332,7 @@ const attendanceRecords = [];
     });
 
     $("#cancelEmployeeForm").addEventListener("click", () => activatePage("employee-master"));
+    $("#deleteEmployeeForm").addEventListener("click", () => confirmAndDelete({ endpoint: `/api/employees/${editingEmployeeId}`, id: editingEmployeeId, dataArray: employeeMasterData, pageKey: "employee-master", recordIdField: "employee_id" }));
     $("#backEmployeeStep").addEventListener("click", () => setEmployeeStep(activeEmployeeStep - 1));
     $("#nextEmployeeStep").addEventListener("click", () => setEmployeeStep(activeEmployeeStep + 1));
     $("#employeeStepper").addEventListener("click", event => {
@@ -7841,6 +8395,15 @@ const attendanceRecords = [];
       }
     });
 
+    $("#addSkillBtn").addEventListener("click", () => addSkillRow());
+    $("#addCertBtn").addEventListener("click", () => addCertRow());
+    $$(".remove-skill-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        btn.closest(".skill-row")?.remove();
+        updateEmployeeReadiness();
+      });
+    });
+
     $("#globalSearch").addEventListener("keydown", event => {
       if (event.key === "Enter") {
         const value = event.target.value.trim();
@@ -7857,13 +8420,13 @@ const attendanceRecords = [];
         closeModal();
         closeDrawer();
         closeMobileMenu();
-        $$(".row-menu").forEach(menu => menu.classList.remove("is-open"));
+        closeFloatingDropdown();
       }
     });
 
     document.addEventListener("click", event => {
-      if (!event.target.closest(".row-menu-wrap")) {
-        $$(".row-menu").forEach(menu => menu.classList.remove("is-open"));
+      if (!event.target.closest(".floating-dropdown, .row-menu-button, .row-menu-wrap")) {
+        closeFloatingDropdown();
       }
     });
 

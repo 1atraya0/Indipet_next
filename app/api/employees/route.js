@@ -1,6 +1,19 @@
 import { query } from "@/src/lib/db";
 
-const safeNumber = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+const safeNumber = v => { const n = Number(v); return Number.isFinite(n) && n !== 0 ? n : null; };
+
+const CONSTRAINT_MESSAGES = {
+  employee_master_phone_key: "This phone number is already in use by another employee.",
+  employee_master_login_id_key: "This login ID is already in use by another employee.",
+};
+
+function friendlyConstraintError(error) {
+  if (!error?.message) return null;
+  for (const [constraint, msg] of Object.entries(CONSTRAINT_MESSAGES)) {
+    if (error.message.includes(constraint)) return msg;
+  }
+  return null;
+}
 
 const EMPLOYEE_JOINS = `
   LEFT JOIN parent_entity pe ON e.parent_entity_id = pe.entity_id
@@ -36,18 +49,54 @@ const EMPLOYEE_COLS = `
     es.nominee_name,
     ef.bank_name, ef.bank_branch AS branch_name, ef.account_number, ef.ifsc_code,
     ef.bank_verification_status,
-    ed.document_type, ed.document_number, ed.document_status,
+    ed.document_type, ed.document_number, ed.document_status, ed.document_file,
     esk.skill_name AS primary_skill, esk.skill_level
 `;
+
+async function attachSkillsAndCerts(employees) {
+  if (!employees || employees.length === 0) return;
+  const ids = employees.map(e => e.employee_id);
+  const [skillsRes, certsRes] = await Promise.all([
+    query(
+      `SELECT employee_id, skill_name, skill_level FROM employee_skills WHERE employee_id = ANY($1::int[]) ORDER BY skill_id`,
+      [ids]
+    ),
+    query(
+      `SELECT employee_id, certification_name, issuing_authority, issue_date, expiry_date, certificate_file FROM employee_certifications WHERE employee_id = ANY($1::int[]) ORDER BY id`,
+      [ids]
+    )
+  ]);
+  const skillsByEmp = {};
+  for (const row of skillsRes.rows) {
+    if (!skillsByEmp[row.employee_id]) skillsByEmp[row.employee_id] = [];
+    skillsByEmp[row.employee_id].push({ skill_name: row.skill_name, skill_level: row.skill_level });
+  }
+  const certsByEmp = {};
+  for (const row of certsRes.rows) {
+    if (!certsByEmp[row.employee_id]) certsByEmp[row.employee_id] = [];
+    certsByEmp[row.employee_id].push({
+      certification_name: row.certification_name,
+      issuing_authority: row.issuing_authority,
+      issue_date: row.issue_date,
+      expiry_date: row.expiry_date,
+      certificate_file: row.certificate_file
+    });
+  }
+  for (const emp of employees) {
+    emp.skills = skillsByEmp[emp.employee_id] || [];
+    emp.certifications = certsByEmp[emp.employee_id] || [];
+  }
+}
 
 export async function GET() {
   try {
     const result = await query(
-      `SELECT ${EMPLOYEE_COLS}
+      `SELECT DISTINCT ON (e.employee_id) ${EMPLOYEE_COLS}
        FROM employee_master e
        ${EMPLOYEE_JOINS}
-       ORDER BY e.first_name, e.last_name`
+       ORDER BY e.employee_id, e.first_name, e.last_name`
     );
+    await attachSkillsAndCerts(result.rows);
     return Response.json(result.rows);
   } catch (error) {
     return Response.json({ message: error.message }, { status: 500 });
@@ -207,18 +256,29 @@ export async function POST(request) {
       );
     }
 
-    if (body.document_type || body.document_number || body.document_status) {
+    if (body.document_type || body.document_number || body.document_status || body.document_file) {
       await query(
-        `INSERT INTO employee_documents (employee_id, document_type, document_number, document_status)
-         VALUES ($1,$2,$3,$4)`,
+        `INSERT INTO employee_documents (employee_id, document_type, document_number, document_status, document_file)
+         VALUES ($1,$2,$3,$4,$5)`,
         [employeeId,
          body.document_type || null,
          body.document_number || null,
-         body.document_status || null]
+         body.document_status || null,
+         body.document_file || null]
       );
     }
 
-    if (body.primary_skill) {
+    if (body.skills && Array.isArray(body.skills) && body.skills.length) {
+      for (const skill of body.skills) {
+        if (skill.skill_name) {
+          await query(
+            `INSERT INTO employee_skills (employee_id, skill_name, skill_level)
+             VALUES ($1,$2,$3)`,
+            [employeeId, skill.skill_name, skill.skill_level || null]
+          );
+        }
+      }
+    } else if (body.primary_skill) {
       await query(
         `INSERT INTO employee_skills (employee_id, skill_name, skill_level)
          VALUES ($1,$2,$3)`,
@@ -226,6 +286,23 @@ export async function POST(request) {
          body.primary_skill,
          body.skill_level || null]
       );
+    }
+
+    if (body.certifications && Array.isArray(body.certifications) && body.certifications.length) {
+      for (const cert of body.certifications) {
+        if (cert.certification_name) {
+          await query(
+            `INSERT INTO employee_certifications (employee_id, certification_name, issuing_authority, issue_date, expiry_date, certificate_file)
+             VALUES ($1,$2,$3,$4,$5,$6)`,
+            [employeeId,
+             cert.certification_name,
+             cert.issuing_authority || null,
+             cert.issue_date || null,
+             cert.expiry_date || null,
+             cert.certificate_file || null]
+          );
+        }
+      }
     }
 
     if (body.shift_restriction_note || body.shift_preference_mode) {
@@ -239,15 +316,20 @@ export async function POST(request) {
     }
 
     const fullResult = await query(
-      `SELECT ${EMPLOYEE_COLS}
+      `SELECT DISTINCT ON (e.employee_id) ${EMPLOYEE_COLS}
        FROM employee_master e
        ${EMPLOYEE_JOINS}
-       WHERE e.employee_id = $1`,
+       WHERE e.employee_id = $1
+       ORDER BY e.employee_id`,
       [employeeId]
     );
 
-    return Response.json(fullResult.rows[0], { status: 201 });
+    const emp = fullResult.rows[0];
+    if (emp) await attachSkillsAndCerts([emp]);
+
+    return Response.json(emp, { status: 201 });
   } catch (error) {
-    return Response.json({ message: error.message }, { status: 500 });
+    const friendly = friendlyConstraintError(error);
+    return Response.json({ message: friendly || error.message }, { status: friendly ? 409 : 500 });
   }
 }

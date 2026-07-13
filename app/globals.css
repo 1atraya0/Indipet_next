@@ -587,6 +587,10 @@
       color: var(--red);
     }
 
+    button[hidden] {
+      display: none !important;
+    }
+
     .button svg {
       width: 16px;
       height: 16px;
@@ -1087,45 +1091,83 @@
     }
 
     .row-menu {
-      position: absolute;
-      top: calc(100% + 4px);
-      right: 0;
-      z-index: 15;
-      width: 150px;
       display: none;
-      padding: 5px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
+    }
+
+    .floating-dropdown {
+      position: fixed;
+      z-index: 100;
+      min-width: 172px;
+      padding: 6px;
+      border: 1px solid #eef0f4;
+      border-radius: 12px;
       background: #fff;
-      box-shadow: 0 14px 36px rgba(15, 23, 42, 0.14);
+      box-shadow: 0 6px 28px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(15, 23, 42, 0.04);
+
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.92);
+      transform-origin: top right;
+      transition: opacity 140ms cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .row-menu.is-open {
-      display: block;
+    .floating-dropdown.is-open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
     }
 
-    .row-menu button {
+    .floating-dropdown.is-from-top {
+      transform-origin: bottom right;
+    }
+
+    .floating-dropdown .menu-item {
       width: 100%;
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px;
+      gap: 10px;
+      padding: 8px 10px;
       border: 0;
-      border-radius: 6px;
+      border-radius: 8px;
       background: transparent;
-      color: var(--text);
-      font-size: 10px;
+      color: #1e293b;
+      font-size: 12px;
+      font-weight: 500;
       text-align: left;
+      cursor: pointer;
+      transition: background 100ms ease;
     }
 
-    .row-menu button:hover {
-      background: var(--workspace);
+    .floating-dropdown .menu-item:hover {
+      background: #f1f5f9;
     }
 
-    .row-menu button svg {
-      width: 14px;
-      height: 14px;
-      color: var(--text-secondary);
+    .floating-dropdown .menu-item:active {
+      background: #e2e8f0;
+    }
+
+    .floating-dropdown .menu-icon {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: #f8fafc;
+      border: 1px solid #f1f5f9;
+      flex-shrink: 0;
+      transition: background 100ms ease, border-color 100ms ease;
+    }
+
+    .floating-dropdown .menu-item:hover .menu-icon {
+      background: #fff;
+      border-color: #e2e8f0;
+    }
+
+    .floating-dropdown .menu-icon svg {
+      width: 13px;
+      height: 13px;
+      color: #64748b;
     }
 
     .empty-state {
@@ -2987,23 +3029,50 @@
       line-height: 1.5;
     }
 
-    .drawer-backdrop,
-    .modal-backdrop,
-    .mobile-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 70;
-      display: none;
-      background: rgba(17, 24, 39, 0.28);
-    }
+.drawer-backdrop,
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: none;
+  background: rgba(17, 24, 39, 0.28);
+}
 
-    .drawer-backdrop.is-open,
-    .modal-backdrop.is-open,
-    .mobile-backdrop.is-open {
-      display: block;
-    }
+.drawer-backdrop.is-open,
+.mobile-backdrop.is-open {
+  display: block;
+}
 
-    .drawer {
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(17, 24, 39, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.modal-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal {
+  opacity: 0;
+  transform: scale(0.96) translateY(-8px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.modal-backdrop.is-open .modal {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.drawer {
       position: fixed;
       top: 0;
       right: 0;
@@ -3096,16 +3165,6 @@
       margin-top: 6px;
       color: var(--text-tertiary);
       font-size: 8.5px;
-    }
-
-    .modal-backdrop {
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .modal-backdrop.is-open {
-      display: flex;
     }
 
     .modal {
@@ -4214,6 +4273,57 @@
       padding: 12px 18px;
       border-top: 1px solid var(--border);
       background: #fafbfc;
+    }
+
+    .confirm-modal {
+      width: min(380px, 100%);
+      text-align: center;
+    }
+
+    .confirm-modal-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 32px 24px 20px;
+    }
+
+    .confirm-icon {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #fef2f2;
+      color: var(--red);
+    }
+
+    .confirm-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke-width: 2;
+    }
+
+    .confirm-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 650;
+      color: var(--text);
+    }
+
+    .confirm-message {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .confirm-modal-footer {
+      justify-content: center;
+      gap: 12px;
+      padding: 12px 24px 24px;
+      border-top: 0;
+      background: transparent;
     }
 
     .toast {
