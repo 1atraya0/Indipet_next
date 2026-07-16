@@ -5,16 +5,28 @@ const safeNumber = v => {
   return Number.isFinite(n) ? n : null;
 };
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const result = await query(
-      `SELECT r.*, e.employee_code, e.first_name, e.last_name,
-        lt.leave_code, lt.leave_name
+    const { searchParams } = new URL(request.url);
+    const statusFilter = searchParams.get("status");
+
+    let sql = `SELECT r.*, e.employee_code, e.first_name, e.last_name,
+        lt.leave_code, lt.leave_name,
+        ap.employee_code AS approved_by_code,
+        CONCAT(ap.first_name, ' ', ap.last_name) AS approved_by_name
        FROM leave_requests r
        LEFT JOIN employee_master e ON r.employee_id = e.employee_id
        LEFT JOIN leave_type_master lt ON r.leave_type_id = lt.leave_type_id
-       ORDER BY r.applied_on DESC`
-    );
+       LEFT JOIN employee_master ap ON r.approved_by = ap.employee_id`;
+
+    const params = [];
+    if (statusFilter) {
+      sql += ` WHERE LOWER(r.status) = LOWER($1)`;
+      params.push(statusFilter);
+    }
+
+    sql += ` ORDER BY r.applied_on DESC`;
+    const result = await query(sql, params);
     return Response.json(result.rows);
   } catch (error) {
     return Response.json({ message: error.message }, { status: 500 });
@@ -34,6 +46,8 @@ export async function POST(request) {
     const empId = safeNumber(body.employee_id);
     const ltId = safeNumber(body.leave_type_id);
     const approvedBy = safeNumber(body.approved_by);
+    const status = String(body.status || "pending").toLowerCase();
+    const approvedOn = body.approved_on ?? (status === "approved" ? new Date().toISOString().slice(0, 10) : null);
 
     if (empId === null || ltId === null) {
       return Response.json({ message: "Invalid employee_id or leave_type_id." }, { status: 400 });
@@ -45,9 +59,9 @@ export async function POST(request) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE,$8,$9,$10) RETURNING *`,
       [empId, ltId,
        body.start_date, body.end_date, duration,
-       body.reason || null, body.status || "pending",
+       body.reason || null, status,
        approvedBy,
-       body.approved_on || null, body.period || null]
+       approvedOn, body.period || null]
     );
     return Response.json(result.rows[0], { status: 201 });
   } catch (error) {

@@ -4,13 +4,17 @@ export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
+    if (body.status !== undefined) body.status = String(body.status).toLowerCase();
+    if (body.status === "approved" && body.approved_on === undefined) {
+      body.approved_on = new Date().toISOString().slice(0, 10);
+    }
     const allowed = ["status","approved_by","approved_on","reason","period","start_date","end_date","duration_days","leave_type_id"];
     const sets = []; const values = []; let idx = 1;
     for (const key of allowed) {
       if (body[key] !== undefined) { sets.push(`${key} = $${idx++}`); values.push(body[key]); }
     }
     sets.push(`updated_at = now()`);
-    if (!sets.length - 1) return Response.json({ message: "No valid fields." }, { status: 400 });
+    if (sets.length <= 1) return Response.json({ message: "No valid fields." }, { status: 400 });
     values.push(Number(id));
     const result = await query(`UPDATE leave_requests SET ${sets.join(", ")} WHERE request_id = $${idx} RETURNING *`, values);
     if (!result.rows.length) return Response.json({ message: "Not found." }, { status: 404 });

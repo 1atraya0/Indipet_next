@@ -9,7 +9,7 @@ export async function PATCH(request, { params }) {
       "policy_name", "shift_type", "coverage_mode",
       "shift_start_time", "shift_end_time", "break_duration_minutes",
       "sanctioned_strength", "max_leave_per_day", "keyholder_required",
-      "weekly_off_pattern", "max_consecutive_days", "policy_status"
+      "weekly_off_pattern", "weekly_off_day", "max_consecutive_days", "policy_status"
     ];
 
     const sets = [];
@@ -21,6 +21,26 @@ export async function PATCH(request, { params }) {
         sets.push(`${key} = $${idx++}`);
         values.push(body[key]);
       }
+    }
+
+    // Recalculate hours when times change
+    const startTime = body.shift_start_time !== undefined ? body.shift_start_time : null;
+    const endTime = body.shift_end_time !== undefined ? body.shift_end_time : null;
+    const breakMin = body.break_duration_minutes !== undefined ? Number(body.break_duration_minutes) : null;
+    if (startTime !== null && endTime !== null) {
+      const startParts = startTime.split(":").map(Number);
+      const endParts = endTime.split(":").map(Number);
+      const startTotal = startParts[0] * 60 + startParts[1];
+      const endTotal = endParts[0] * 60 + endParts[1];
+      const rawMinutes = endTotal >= startTotal ? endTotal - startTotal : (1440 - startTotal) + endTotal;
+      const totalHours = parseFloat(((rawMinutes) / 60).toFixed(2));
+      const netHours = breakMin !== null ? parseFloat(((rawMinutes - breakMin) / 60).toFixed(2)) : totalHours;
+      sets.push(`total_shift_hours = $${idx++}`);
+      values.push(totalHours);
+      sets.push(`net_work_hours = $${idx++}`);
+      values.push(netHours);
+    } else if (startTime !== null || endTime !== null) {
+      // If only one time changed, recalculate with existing values (handled below by fetching)
     }
 
     if (body.primary_keyholder_id !== undefined) {

@@ -79,9 +79,9 @@ export async function POST(request) {
             shift_start_time, shift_end_time, total_shift_hours,
             break_duration_minutes, net_work_hours,
             sanctioned_strength, max_leave_per_day, keyholder_required,
-            weekly_off_pattern, max_consecutive_days, policy_status,
+            weekly_off_pattern, weekly_off_day, max_consecutive_days, policy_status,
             primary_keyholder_id, backup_keyholder_id
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
           RETURNING *`,
           [
             policyCode, Number(location_id), policy.policy_name, policy.shift_type,
@@ -92,6 +92,7 @@ export async function POST(request) {
             Number(policy.max_leave_per_day) || 1,
             policy.keyholder_required === true || policy.keyholder_required === "true",
             policy.weekly_off_pattern || "Rotational",
+            policy.weekly_off_day || null,
             Number(policy.max_consecutive_days) || 6,
             policy.policy_status || "Active",
             policy.primary_keyholder_id ? Number(policy.primary_keyholder_id) : null,

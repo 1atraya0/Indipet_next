@@ -1094,6 +1094,28 @@
       display: none;
     }
 
+    tr.is-orphaned {
+      background: #fef2f2;
+    }
+    tr.is-orphaned:hover {
+      background: #fee2e2;
+    }
+    .is-orphaned {
+      color: var(--red);
+      font-weight: 500;
+    }
+    .is-orphaned::before {
+      content: "\26A0\FE0F ";
+      font-weight: 400;
+    }
+
+    .notification-item {
+      cursor: pointer;
+    }
+    .notification-item:hover {
+      background: var(--bg-hover, #f8f9fc);
+    }
+
     .floating-dropdown {
       position: fixed;
       z-index: 100;
@@ -3047,6 +3069,7 @@
   position: fixed;
   inset: 0;
   z-index: 70;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
@@ -3986,6 +4009,50 @@
       gap: 22px;
       margin: 2px 0 14px;
       border-bottom: 1px solid var(--border);
+    }
+
+    .module-tabs {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      margin: 2px 0 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .module-tab {
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      padding: 0 0 10px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .module-tab.is-active {
+      border-bottom-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .module-leave-tabs {
+      margin-bottom: 24px;
+    }
+
+    .module-view.leaves-view .module-summary {
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 860px) {
+      .module-view.leaves-view .module-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 600px) {
+      .module-view.leaves-view .module-summary {
+        grid-template-columns: 1fr;
+      }
     }
 
     .roster-board-tab {

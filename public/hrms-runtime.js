@@ -15,6 +15,7 @@ const FRIENDLY_SLUGS = {
   "policy-variants": "policy-variants",
   "policy-assignments": "policy-assignments",
   "holiday-calendar": "holiday-calendar",
+
   "regularization": "regularization",
   "shift-exceptions": "shift-exceptions",
   "co-ledger": "co-ledger",
@@ -173,7 +174,7 @@ const attendanceRecords = [];
       "skills-certifications": genericPage("Skills & Certifications", "Employees", "Maintain verified employee capabilities used by service booking and roster eligibility.", "Add Skill", ["Skill Records", "Verified", "Expiring Soon"], ["Employee", "Skill", "Level", "Valid Until", "Status"]),
       "shift-preferences": genericPage("Shift Preferences", "Employees", "Manage default shift mode and temporary employee scheduling restrictions.", "Add Preference", ["Flexible", "Fixed Default", "Temporary Rules"], ["Employee", "Mode", "Default Shift", "Effective Until", "Status"]),
       "transfers": genericPage("Transfer History", "Employees", "Review effective-dated employee movement across locations and entities.", "Create Transfer", ["Transfers", "Pending", "This Month"], ["Employee", "From", "To", "Effective Date", "Status"]),
-      "leave-requests": genericPage("Leave Requests", "Leave Management", "Review employee leave requests with balance, eligibility and coverage checks.", "New Request", ["Pending", "Approved Today", "Coverage Blocks"], ["Request ID", "Employee", "Leave Type", "Dates", "Status"]),
+      "leave-requests": genericPage("Leaves", "Leave Management", "Review employee leave requests with balance, eligibility and coverage checks.", "New Request", ["Pending", "Approved Today", "Coverage Blocks"], ["Request ID", "Employee", "Leave Type", "Dates", "Status"]),
       "leave-type-master": genericPage("Leave Type Master", "Leave Management", "Manage CL, SL, EL, CO, LOP, maternity and paternity leave definitions.", "Add Leave Type", ["Leave Types", "Paid", "Event Based"], ["Code", "Leave Type", "Paid", "Accrual Type", "Status"]),
       "leave-policy": genericPage("Leave Policy", "Leave Management", "Configure the financial-year leave wrapper and its operational controls.", "Create Policy", ["Policies", "Active", "Assigned Employees"], ["Policy ID", "Policy", "Financial Year", "Variants", "Status"]),
       "policy-variants": genericPage("Policy Variants", "Leave Management", "Define entitlement behaviour for stores, HQ, probation and contractors.", "Add Variant", ["Variants", "Default", "Special Groups"], ["Variant Code", "Variant Name", "Applicable To", "Employees", "Status"]),
@@ -207,6 +208,40 @@ const attendanceRecords = [];
       return { title, parent, description, action, icon: "plus", labels, values, columns, rows: [] };
     }
 
+    const leaveTabConfigs = {
+      pending: {
+        label: "Leave Requests",
+        labels: ["Pending", "Pending Today", "Coverage Blocks"],
+        filter: request => leaveRequestStatus(request) === "pending"
+      },
+      approved: {
+        label: "Approved Leaves",
+        labels: ["Approved", "This Month", "Upcoming"],
+        filter: request => leaveRequestStatus(request) === "approved"
+      },
+      rejected: {
+        label: "Rejected Leaves",
+        labels: ["Rejected This Month", "Total Rejected"],
+        filter: request => leaveRequestStatus(request) === "rejected"
+      },
+    };
+
+    function leaveRequestStatus(recordOrRow) {
+      if (Array.isArray(recordOrRow)) return String(recordOrRow[recordOrRow.length - 1] || "").toLowerCase();
+      return String(recordOrRow?.status || "").toLowerCase();
+    }
+
+    function leaveRequestStartDate(recordOrRow) {
+      if (Array.isArray(recordOrRow)) return String(recordOrRow[3] || "").split(" to ")[0] || "";
+      return String(recordOrRow?.start_date || "").slice(0, 10);
+    }
+
+    function leaveRequestEndDate(recordOrRow) {
+      if (Array.isArray(recordOrRow)) return String(recordOrRow[3] || "").split(" to ")[1] || String(recordOrRow[3] || "").split(" to ")[0] || "";
+      return String(recordOrRow?.end_date || "").slice(0, 10);
+    }
+    let activeLeaveTab = "pending";
+
     const weeklyData = [];
 
     let activePage = "dashboard";
@@ -218,6 +253,7 @@ const attendanceRecords = [];
     let hoursEditMode = false;
     let hoursDraft = null;
     let shiftPolicyKeyholderRequired = true;
+    let editingShiftPolicyIndex = -1;
     let rosterGeneratedSetup = null;
     let publishedRosters = [];
     let departmentFormMode = "create";
@@ -236,6 +272,7 @@ const attendanceRecords = [];
     let editingLeavePolicyId = null;
     let leaveRequestFormMode = "create";
     let editingLeaveRequestId = null;
+    let currentLeaveRequestRecord = null;
     let attendanceFormMode = "create";
     let editingAttendanceId = null;
     let regularizationFormMode = "create";
@@ -1542,10 +1579,57 @@ const attendanceRecords = [];
         renderRosterControlCenter();
         return;
       }
+
+      const mv = $("#moduleView");
+      if (mv) mv.classList.toggle("leaves-view", pageKey === "leave-requests");
+
       const search = $("#moduleSearch").value.trim().toLowerCase();
       const location = $("#moduleLocation").value;
       const status = $("#moduleStatus").value;
-      const rows = config.rows.filter(row => {
+
+      let rows = config.rows;
+      let tabLabels = config.labels;
+      let tabValues = config.values;
+
+      if (pageKey === "leave-requests") {
+        const tabCfg = leaveTabConfigs[activeLeaveTab] || leaveTabConfigs.pending;
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const now = new Date();
+        const leaveSource = leaveRequestData.length ? leaveRequestData : config.rows;
+        const filteredRequests = leaveSource.filter(tabCfg.filter);
+        rows = config.rows.filter((row, index) => tabCfg.filter(leaveSource[index] || row));
+        tabLabels = tabCfg.labels;
+        tabValues = tabCfg.labels.map((label, index) => {
+          if (index === 0) return String(filteredRequests.length);
+          if (activeLeaveTab === "pending") {
+            if (index === 1) return String(filteredRequests.filter(r => leaveRequestStartDate(r) === todayIso || leaveRequestEndDate(r) === todayIso).length);
+            if (index === 2) return String(filteredRequests.filter(r => {
+              const coverageStatus = String(r.coverage_status || r.coverageState || "").toLowerCase();
+              return !coverageStatus || coverageStatus !== "clear";
+            }).length);
+          }
+          if (activeLeaveTab === "approved") {
+            if (index === 1) return String(filteredRequests.filter(r => {
+              const approvedOn = r.approved_on ? new Date(r.approved_on) : null;
+              return approvedOn && approvedOn.getMonth() === now.getMonth() && approvedOn.getFullYear() === now.getFullYear();
+            }).length);
+            if (index === 2) return String(filteredRequests.filter(r => {
+              const endDateValue = leaveRequestEndDate(r);
+              const endDate = endDateValue ? new Date(endDateValue) : null;
+              return endDate && endDate >= new Date(todayIso);
+            }).length);
+          }
+          if (activeLeaveTab === "rejected" && index === 1) {
+            return String(filteredRequests.filter(r => {
+              const updatedAt = r.updated_at ? new Date(r.updated_at) : null;
+              return updatedAt && updatedAt.getMonth() === now.getMonth() && updatedAt.getFullYear() === now.getFullYear();
+            }).length);
+          }
+          return "0";
+        });
+      }
+
+      rows = rows.filter(row => {
         const rowText = row.join(" ").toLowerCase();
         const rowLocation = subLocations.find(loc => row.includes(loc.listName))?.listName;
         const rowStatus = row[row.length - 1];
@@ -1553,21 +1637,37 @@ const attendanceRecords = [];
           && (location === "all" || rowLocation === location)
           && (status === "all" || rowStatus === status);
       });
+      rows.sort((a, b) => (b._orphaned ? 1 : 0) - (a._orphaned ? 1 : 0));
 
-      $("#moduleSummary").innerHTML = config.labels.map((label, index) => `
+      const tabBarHtml = pageKey === "leave-requests" ? `
+        <div class="module-tabs">
+          ${Object.entries(leaveTabConfigs).map(([key, cfg]) => `
+            <button class="module-tab${key === activeLeaveTab ? " is-active" : ""}" data-leave-tab="${key}" type="button">${cfg.label}</button>
+          `).join("")}
+        </div>
+      ` : "";
+
+      $("#moduleSummary").innerHTML = tabLabels.map((label, index) => `
         <article class="card summary-card">
           <div class="summary-label">${label}</div>
-          <div class="summary-value">${config.values[index]}</div>
+          <div class="summary-value">${tabValues[index]}</div>
           <div class="summary-note">${index === 0 ? "Current operational total" : index === 1 ? "Within configured scope" : "Requires routine monitoring"}</div>
         </article>
       `).join("");
+
+      const leaveTabRail = $("#moduleLeaveTabs");
+      if (leaveTabRail) {
+        leaveTabRail.innerHTML = pageKey === "leave-requests" ? tabBarHtml : "";
+        leaveTabRail.classList.toggle("is-visible", pageKey === "leave-requests");
+      }
 
       $("#moduleTableTitle").textContent = `${config.title} Records`;
       $("#moduleTableSubtitle").textContent = `Current ${config.parent.toLowerCase()} data and workflow status`;
       $("#moduleTableHead").innerHTML = `<tr><th class="checkbox-cell"><input type="checkbox" aria-label="Select all"></th>${config.columns.map(column => `<th>${column}</th>`).join("")}<th class="action-cell">Action</th></tr>`;
       $("#moduleTableBody").innerHTML = rows.map((row, rowIndex) => {
         const sourceIndex = config.rows.indexOf(row);
-        return `<tr data-row-index="${sourceIndex}" data-page="${pageKey}" class="${pageKey === "entity-master" && row[0] === selectedEntityId ? "is-selected" : ""}">
+        const orphanClass = row._orphaned ? " is-orphaned" : "";
+        return `<tr data-row-index="${sourceIndex}" data-page="${pageKey}" class="${pageKey === "entity-master" && row[0] === selectedEntityId ? "is-selected" : ""}${orphanClass}">
           <td class="checkbox-cell"><input type="checkbox" aria-label="Select record ${rowIndex + 1}"></td>
           ${row.map((cell, index) => {
             const isStatus = index === row.length - 1;
@@ -2033,13 +2133,56 @@ const attendanceRecords = [];
       clearShiftPolicyError();
     }
 
-    function openShiftPolicyModal() {
+    function openShiftPolicyModal(shiftIndex) {
       const location = getSelectedLocation();
+      editingShiftPolicyIndex = shiftIndex ?? -1;
       resetShiftPolicyForm();
+      if (editingShiftPolicyIndex >= 0) {
+        const shift = location.shifts?.[editingShiftPolicyIndex];
+        if (shift) populateShiftPolicyForm(shift);
+      }
       $("#shiftPolicyLocationContext").textContent = `Location: ${location.name} (${location.id})`;
       $("#shiftPolicyModal").classList.add("is-open");
       $("#shiftPolicyName").focus();
       refreshIcons();
+    }
+
+    function populateShiftPolicyForm(shift) {
+      const isFull = shift.length >= 10;
+      const isOffice = getSelectedLocation().type === "Head Office";
+
+      $("#shiftPolicyId").value = shift[0] || "Auto-generated";
+      $("#shiftPolicyName").value = shift[1] || "";
+
+      const coverageRole = shift[6] || "Standard";
+      $("#shiftCoverageRole").value = coverageRole;
+
+      $("#shiftPolicyStatus").value = shift[5] || "Active";
+      $("#shiftRequiredStaff").value = shift[3] || (isOffice ? "5" : "4");
+      $("#shiftMaxConsecutiveDays").value = shift[14] || "6";
+      $("#shiftBreakMinutes").value = shift[10] || "60";
+      $("#shiftDailyLeaveLimit").value = shift[12] || (isOffice ? "2" : "1");
+
+      const startTime = isFull && shift[7] ? String(shift[7]).substring(0, 5) : "10:00";
+      const endTime = isFull && shift[8] ? String(shift[8]).substring(0, 5) : "19:00";
+      setShiftTimeControls(startTime, endTime);
+
+      const weeklyOffValue = shift[4] || "Rotational";
+      const knownPatterns = ["Rotational", "Fixed"];
+      if (knownPatterns.includes(weeklyOffValue)) {
+        $("#shiftWeeklyOffPattern").value = weeklyOffValue;
+        $("#shiftWeeklyOffDay").value = "";
+      } else {
+        $("#shiftWeeklyOffPattern").value = "Fixed";
+        const dayMap = { Monday: "1", Tuesday: "2", Wednesday: "3", Thursday: "4", Friday: "5", Saturday: "6", Sunday: "7" };
+        $("#shiftWeeklyOffDay").value = dayMap[weeklyOffValue] || "";
+      }
+      updateShiftWeeklyOffControls();
+
+      shiftPolicyKeyholderRequired = shift[13] === "Yes";
+      updateShiftKeyholderControls();
+      updateShiftPolicyCalculations();
+      clearShiftPolicyError();
     }
 
     function closeShiftPolicyModal() {
@@ -2047,7 +2190,11 @@ const attendanceRecords = [];
     }
 
     function collectShiftPolicyFormRecord() {
+      const location = getSelectedLocation();
+      const existing = editingShiftPolicyIndex >= 0 ? location.shifts?.[editingShiftPolicyIndex] : null;
+      const existingShiftType = existing && existing.length >= 10 ? existing[2] : "";
       return {
+        shift_type: existingShiftType || "Standard",
         policy_id: generateShiftPolicyId(),
         location_id: selectedLocationId,
         policy_name: $("#shiftPolicyName").value.trim(),
@@ -2166,19 +2313,104 @@ const attendanceRecords = [];
       location.shifts.push([
         created.policy_id,
         created.policy_name,
-        formatHourRange(
-          String(created.shift_start_time || "").substring(0, 5),
-          String(created.shift_end_time || "").substring(0, 5)
-        ),
-        String(created.sanctioned_strength),
+        created.shift_type || "Standard",
+        String(created.sanctioned_strength || record.sanctioned_strength),
         weeklyOff,
-        created.policy_status,
-        created.coverage_mode
+        created.policy_status || record.policy_status,
+        created.coverage_mode || record.coverage_role,
+        String(created.shift_start_time || record.shift_start_time || "").substring(0, 5),
+        String(created.shift_end_time || record.shift_end_time || "").substring(0, 5),
+        Number(created.total_shift_hours) || 0,
+        Number(created.break_duration_minutes) || record.break_duration_minutes,
+        Number(created.net_work_hours) || 0,
+        Number(created.max_leave_per_day) || record.max_leave_per_day,
+        created.keyholder_required ? "Yes" : "No",
+        Number(created.max_consecutive_days) || record.max_consecutive_days
       ]);
       location.shiftPolicyRecords = [...(location.shiftPolicyRecords || []), { ...created }];
+      editingShiftPolicyIndex = -1;
       renderLocationTab();
       closeShiftPolicyModal();
       showToast(`${created.policy_name} created for ${location.listName}.`);
+    }
+
+    async function updateShiftPolicy(record) {
+      const api = window.IndipetHRMS?.api;
+      const location = getSelectedLocation();
+      const shift = location.shifts?.[editingShiftPolicyIndex];
+      if (!shift) return;
+      const policyId = shift[0];
+
+      try {
+        const updated = await api.shiftPolicies.update(policyId, {
+          policy_name: record.policy_name,
+          shift_type: record.shift_type || "Standard",
+          coverage_mode: record.coverage_role,
+          shift_start_time: record.shift_start_time,
+          shift_end_time: record.shift_end_time,
+          break_duration_minutes: record.break_duration_minutes,
+          sanctioned_strength: record.sanctioned_strength,
+          max_leave_per_day: record.max_leave_per_day,
+          keyholder_required: record.keyholder_required,
+          primary_keyholder_id: record.primary_keyholder_id || null,
+          backup_keyholder_id: record.backup_keyholder_id || null,
+          weekly_off_pattern: record.weekly_off_pattern,
+          weekly_off_day: record.weekly_off_day || null,
+          max_consecutive_days: record.max_consecutive_days,
+          policy_status: record.policy_status
+        });
+
+        const weeklyOff = record.weekly_off_pattern === "Fixed" ? weekDayLabel(record.weekly_off_day) : "Rotational";
+        location.shifts[editingShiftPolicyIndex] = [
+          updated.policy_id,
+          updated.policy_name,
+          updated.shift_type || record.shift_type || "Standard",
+          String(updated.sanctioned_strength || record.sanctioned_strength),
+          weeklyOff,
+          updated.policy_status || record.policy_status,
+          updated.coverage_mode || record.coverage_role,
+          String(updated.shift_start_time || record.shift_start_time || "").substring(0, 5),
+          String(updated.shift_end_time || record.shift_end_time || "").substring(0, 5),
+          Number(updated.total_shift_hours) || 0,
+          Number(updated.break_duration_minutes) || record.break_duration_minutes,
+          Number(updated.net_work_hours) || 0,
+          Number(updated.max_leave_per_day) || record.max_leave_per_day,
+          updated.keyholder_required ? "Yes" : "No",
+          Number(updated.max_consecutive_days) || record.max_consecutive_days
+        ];
+        editingShiftPolicyIndex = -1;
+        renderLocationTab();
+        closeShiftPolicyModal();
+        showToast(`${updated.policy_name} updated for ${location.listName}.`);
+      } catch (err) {
+        showToast(`Failed to update shift policy: ${err.message}`);
+      }
+    }
+
+    async function handleDeleteShiftPolicy(shiftIndex) {
+      const location = getSelectedLocation();
+      const shift = location.shifts?.[shiftIndex];
+      if (!shift) return;
+      const confirmed = await showConfirmDialog(`Delete "${shift[1]}"? This cannot be undone.`);
+      if (!confirmed) return;
+      await deleteShiftPolicy(shiftIndex);
+    }
+
+    async function deleteShiftPolicy(shiftIndex) {
+      const api = window.IndipetHRMS?.api;
+      const location = getSelectedLocation();
+      const shift = location.shifts?.[shiftIndex];
+      if (!shift) return;
+      const policyId = shift[0];
+
+      try {
+        await api.shiftPolicies.remove(policyId);
+        location.shifts.splice(shiftIndex, 1);
+        renderLocationTab();
+        showToast(`Shift policy deleted.`);
+      } catch (err) {
+        showToast(`Failed to delete shift policy: ${err.message}`);
+      }
     }
 
     function isoDateValue(date) {
@@ -2922,8 +3154,8 @@ const attendanceRecords = [];
           <table class="control-table">
             <thead><tr><th>Policy ID</th><th>Shift</th><th>Timing</th><th>Sanctioned Strength</th><th>Weekly Off</th><th>Coverage Role</th><th>Status</th><th class="action-cell">Action</th></tr></thead>
             <tbody>
-              ${rows.map(shift => `
-                <tr>
+              ${rows.map((shift, index) => `
+                <tr data-shift-index="${index}">
                   <td>${shift[0]}</td>
                   <td>${shift[1]}</td>
                   <td>${shift[2]}</td>
@@ -2931,7 +3163,7 @@ const attendanceRecords = [];
                   <td>${shift[4]}</td>
                   <td><span class="badge ${shiftCoverageRole(shift) === "Fallback" ? "blue" : "grey"}">${shiftCoverageRole(shift)}</span></td>
                   <td><span class="badge ${statusClass[shift[5]] || "grey"}">${shift[5]}</span></td>
-                  <td class="action-cell"><button class="row-menu-button" data-control-action="row-menu" aria-label="Shift policy actions"><i data-lucide="ellipsis-vertical"></i></button></td>
+                  <td class="action-cell"><div class="row-menu-wrap"><button class="row-menu-button" aria-label="Shift policy actions"><i data-lucide="ellipsis-vertical"></i></button><div class="row-menu"><button class="menu-item" data-row-action="edit"><span class="menu-icon"><i data-lucide="pencil"></i></span><span class="menu-text">Edit record</span></button><button class="menu-item" data-row-action="view"><span class="menu-icon"><i data-lucide="eye"></i></span><span class="menu-text">View details</span></button><button class="menu-item" data-row-action="delete"><span class="menu-icon"><i data-lucide="trash-2"></i></span><span class="menu-text">Delete</span></button></div></div></td>
                 </tr>
               `).join("")}
             </tbody>
@@ -3629,6 +3861,15 @@ const attendanceRecords = [];
         });
       }
 
+      const statusSelect = document.querySelector("#leaveRequestStatus");
+      if (statusSelect) {
+        statusSelect.innerHTML = `
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        `;
+      }
+
       // Populate policy dropdowns
       const policySelectors = ["#variantPolicy", "#assignmentPolicy"];
       policySelectors.forEach(id => {
@@ -4186,19 +4427,20 @@ const attendanceRecords = [];
     function openLeaveRequestForm(record) {
       const isEdit = !!record;
       leaveRequestFormMode = isEdit ? "edit" : "create";
+      currentLeaveRequestRecord = record || null;
       editingLeaveRequestId = isEdit ? record.request_id : null;
       activePage = "leave-requests-form";
       $$(".nav-single, .nav-child").forEach(b => b.classList.remove("is-active"));
       $('.nav-child[data-page="leave-requests"]')?.classList.add("is-active");
       $$("#dashboardView, #locationControlView, #locationFormView, #entityFormView, #employeeFormView, #moduleView, #departmentFormView, #designationFormView, #roleFormView, #leaveTypeFormView, #leavePolicyFormView, #policyVariantFormView, #policyAssignmentFormView, #holidayCalendarFormView").forEach(v => v.classList.remove("is-active"));
       $("#leaveRequestFormView").classList.add("is-active");
-      setBreadcrumb(["HRMS", "Leave Management", "Leave Requests", isEdit ? "Edit Request" : "New Request"]);
+      setBreadcrumb(["HRMS", "Leave Management", "Leaves", isEdit ? "Edit Request" : "New Request"]);
       $("#pageTitle").textContent = isEdit ? "Edit Leave Request" : "New Leave Request";
       $("#pageDescription").textContent = "Submit a leave request for an employee.";
       $(".page-actions").classList.add("is-form-page");
       $("#exportButton").style.display = "none";
       $("#primaryAction").className = "button";
-      $("#primaryAction").innerHTML = `<i data-lucide="arrow-left"></i>Back to Leave Requests`;
+      $("#primaryAction").innerHTML = `<i data-lucide="arrow-left"></i>Back to Leaves`;
       loadLeaveDropdownOptions();
       $("#submitLeaveRequestForm").innerHTML = `<i data-lucide="save"></i>${isEdit ? "Save Changes" : "Submit Request"}`;
       const fmtLrDate = v => {
@@ -4211,6 +4453,8 @@ const attendanceRecords = [];
         const val = record ? (record[f.dataset.leaveRequestField] ?? "") : "";
         f.value = f.type === "date" ? fmtLrDate(val) : val;
       });
+      const statusField = $("#leaveRequestStatus");
+      if (statusField) statusField.value = record?.status || "pending";
       closeMobileMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
       syncPageURL("leave-requests-form", isEdit ? "edit" : "new", editingLeaveRequestId);
@@ -5484,10 +5728,16 @@ const attendanceRecords = [];
 
     function mapDbRowToEmployeeRow(dbRow) {
       const fullName = `${dbRow.first_name || ""} ${dbRow.last_name || ""}`.trim();
-      const locationLabel = dbRow.location_name || "Not assigned";
-      const designationLabel = dbRow.designation_name || "Not assigned";
+      const locationOrphaned = dbRow.previous_location_id && !dbRow.location_name;
+      const desigOrphaned = dbRow.designation_id && !dbRow.designation_name;
+      const locationLabel = locationOrphaned
+        ? `<span class="is-orphaned">Deleted (#${dbRow.previous_location_id})</span>`
+        : (dbRow.location_name || "Not assigned");
+      const designationLabel = desigOrphaned
+        ? `<span class="is-orphaned">Deleted</span>`
+        : (dbRow.designation_name || "Not assigned");
       const profileStatus = dbRow.status === "Active" ? "Complete" : "Incomplete Profile";
-      return [
+      const row = [
         dbRow.employee_code || String(dbRow.employee_id),
         fullName,
         locationLabel,
@@ -5495,6 +5745,8 @@ const attendanceRecords = [];
         profileStatus,
         dbRow.status || "Active"
       ];
+      if (locationOrphaned || desigOrphaned) row._orphaned = true;
+      return row;
     }
 
     async function createEmployeeRecord(record, asDraft = false) {
@@ -5737,11 +5989,12 @@ const attendanceRecords = [];
           case "leave-requests": {
             const requests = await api.leaveRequests.list();
             leaveRequestData = requests;
-            const cfg = pageConfig["leave-requests"];
-            cfg.rows = requests.map(mapDbRowToLeaveRequestRow);
-            cfg.values[0] = String(requests.length);
+            const lrCfg = pageConfig["leave-requests"];
+            lrCfg.rows = requests.map(mapDbRowToLeaveRequestRow);
+            lrCfg.values[0] = String(requests.length);
             break;
           }
+
           case "attendance-list": {
             const [dashData, attendanceRows] = await Promise.all([
               api.attendance.dashboard().catch(() => null),
@@ -5877,16 +6130,91 @@ const attendanceRecords = [];
       if (!confirmed) return;
       try {
         const api = window.IndipetHRMS?.api;
+        let affected = {};
         if (api) {
-          await fetch(endpoint, { method: "DELETE" });
+          const res = await fetch(endpoint, { method: "DELETE" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || "Failed to delete.");
+          if (data.affected) affected = data.affected;
         }
         await refreshModuleData(pageKey);
+        checkDataIntegrity();
+        populateNotificationDrawer();
+        updateNotificationDot();
         activatePage(pageKey);
         renderModule(pageKey);
-        showToast("Record deleted successfully.");
+        const parts = ["Record deleted successfully."];
+        if (affected.rosters) parts.push(`${affected.rosters} roster(s) removed.`);
+        if (affected.attendance) parts.push(`${affected.attendance} attendance record(s) removed.`);
+        if (affected.shiftPolicies) parts.push(`${affected.shiftPolicies} shift polic(ies) removed.`);
+        if (affected.employees) parts.push(`${affected.employees} employee(s) unlinked.`);
+        if (affected.roles) parts.push(`${affected.roles} role(s) removed.`);
+        showToast(parts.join(" "));
       } catch (error) {
         showToast(error.message || "Failed to delete the record.");
       }
+    }
+
+    let dataIntegrityIssues = [];
+
+    function checkDataIntegrity() {
+      const issues = [];
+
+      const empCfg = pageConfig["employee-master"];
+      if (empCfg && empCfg.rows.length) {
+        const count = empCfg.rows.filter(r => r._orphaned).length;
+        if (count) issues.push({
+          type: "orphaned_employee",
+          severity: "error",
+          message: `${count} employee(s) reference deleted records`,
+          pageKey: "employee-master",
+          icon: "user-x",
+          count
+        });
+      }
+
+      const locationOrphans = subLocations.filter(loc => loc._entityOrphaned).length;
+      if (locationOrphans) issues.push({
+        type: "orphaned_location",
+        severity: "warning",
+        message: `${locationOrphans} location(s) reference deleted organizations`,
+        pageKey: "sub-location",
+        icon: "building",
+        count: locationOrphans
+      });
+
+      dataIntegrityIssues = issues;
+    }
+
+    function populateNotificationDrawer() {
+      const body = $(".drawer-body", $("#notificationDrawer"));
+      if (!body) return;
+      if (!dataIntegrityIssues.length) {
+        body.innerHTML = `<div class="empty-state" style="padding:40px 24px"><i data-lucide="bell-off"></i><div class="empty-title">All clear</div><div class="empty-copy">No data integrity issues detected.</div></div>`;
+      } else {
+        body.innerHTML = dataIntegrityIssues.map(issue => `
+          <div class="notification-item" data-page="${issue.pageKey}">
+            <span class="notification-icon ${issue.severity === "error" ? "red" : "amber"}"><i data-lucide="${issue.icon}"></i></span>
+            <div>
+              <div class="notification-title">${issue.message}</div>
+              <div class="notification-text">Click to view affected records</div>
+              <div class="notification-time">Detected just now</div>
+            </div>
+          </div>
+        `).join("");
+        $$(".notification-item[data-page]").forEach(item => {
+          item.addEventListener("click", () => {
+            closeDrawer();
+            activatePage(item.dataset.page);
+          });
+        });
+      }
+      refreshIcons();
+    }
+
+    function updateNotificationDot() {
+      const dot = $(".notification-dot");
+      if (dot) dot.style.display = dataIntegrityIssues.length ? "" : "none";
     }
 
     function activatePage(pageKey) {
@@ -5976,10 +6304,15 @@ const attendanceRecords = [];
       $(".page-actions").classList.remove("is-form-page");
       $("#exportButton").style.display = "";
       $("#exportButton").innerHTML = `<i data-lucide="download"></i>Export`;
-      $("#primaryAction").className = "button primary";
-      $("#primaryAction").innerHTML = `<i data-lucide="${icon}"></i>${action}`;
-      $("#modalTitle").textContent = action;
-      $("#modalSubtitle").textContent = `${action} in ${title}`;
+      if (action) {
+        $("#primaryAction").className = "button primary";
+        $("#primaryAction").innerHTML = `<i data-lucide="${icon || "plus"}"></i>${action}`;
+        $("#primaryAction").style.display = "";
+      } else {
+        $("#primaryAction").style.display = "none";
+      }
+      $("#modalTitle").textContent = action || title;
+      $("#modalSubtitle").textContent = action ? `${action} in ${title}` : title;
     }
 
     function showToast(message) {
@@ -6004,6 +6337,7 @@ const attendanceRecords = [];
     }
 
     function openDrawer() {
+      populateNotificationDrawer();
       $("#notificationDrawer").classList.add("is-open");
       $("#drawerBackdrop").classList.add("is-open");
       $("#notificationDrawer").setAttribute("aria-hidden", "false");
@@ -6256,7 +6590,11 @@ const attendanceRecords = [];
         showShiftPolicyError(validation.message, validation.fields);
         return;
       }
-      await createShiftPolicy(record);
+      if (editingShiftPolicyIndex >= 0) {
+        await updateShiftPolicy(record);
+      } else {
+        await createShiftPolicy(record);
+      }
     });
 
     const closeModalBtn = $("#closeRosterGenerateModal");
@@ -6799,7 +7137,7 @@ const attendanceRecords = [];
         }
         openLeavePolicyForm(record);
       },
-      "leave-requests": (row, rowIndex) => {
+      "leave-requests": async (row, rowIndex, action) => {
         let record = leaveRequestData[rowIndex];
         if (!record) {
           const lt = leaveTypeData.find(t => t.leave_code === row[2] || String(t.leave_type_id) === row[2]);
@@ -7096,8 +7434,14 @@ const attendanceRecords = [];
         const rowData = config?.rows?.[rowIndex];
         const handler = moduleActionHandlers[activePage];
         if (handler && rowData) {
-          handler(rowData, rowIndex);
+          handler(rowData, rowIndex, action.dataset.rowAction);
         }
+        return;
+      }
+      const leaveTab = event.target.closest("[data-leave-tab]");
+      if (leaveTab) {
+        activeLeaveTab = leaveTab.dataset.leaveTab;
+        renderModule("leave-requests");
         return;
       }
     });
@@ -7137,6 +7481,26 @@ const attendanceRecords = [];
         if (!row) return;
         row.isOpen = !row.isOpen;
         renderLocationTab();
+        return;
+      }
+
+      const menuButton = event.target.closest(".row-menu-button");
+      if (menuButton) {
+        toggleRowMenu(menuButton);
+        return;
+      }
+
+      const rowAction = event.target.closest("[data-row-action]");
+      if (rowAction) {
+        const rowEl = rowAction.closest("tr");
+        const shiftIndex = rowEl?.dataset?.shiftIndex;
+        if (rowAction.dataset.rowAction === "edit" && shiftIndex !== undefined) {
+          openShiftPolicyModal(Number(shiftIndex));
+        } else if (rowAction.dataset.rowAction === "delete") {
+          handleDeleteShiftPolicy(Number(shiftIndex));
+        } else {
+          showToast(`${rowAction.textContent.trim()} for shift policy.`);
+        }
         return;
       }
 
@@ -7710,22 +8074,52 @@ const attendanceRecords = [];
       event.preventDefault();
       const record = {};
       $$("[data-leave-request-field]").forEach(f => { record[f.dataset.leaveRequestField] = f.value.trim(); });
+      record.status = String(record.status || "pending").toLowerCase();
+      const previousStatus = String(currentLeaveRequestRecord?.status || "").toLowerCase();
+      if (record.status === "approved") {
+        record.approved_on = currentLeaveRequestRecord?.approved_on || new Date().toISOString().slice(0, 10);
+        record.approved_by = currentLeaveRequestRecord?.approved_by || null;
+      } else if (record.status === "rejected") {
+        record.approved_on = null;
+        record.approved_by = null;
+      } else {
+        record.approved_on = null;
+        record.approved_by = null;
+      }
+      if (previousStatus === "approved" && record.status === "approved" && currentLeaveRequestRecord?.approved_on) {
+        record.approved_on = currentLeaveRequestRecord.approved_on;
+      }
       if (!record.employee_id || !record.leave_type_id || !record.start_date || !record.end_date) { showToast("Employee, leave type, start and end dates are required.", "error"); return; }
       try {
         const api = window.IndipetHRMS?.api; const mode = window.IndipetHRMS?.dataMode;
-        if (mode === "api" && api) {
-          const created = await api.leaveRequests.create(record);
-          const config = pageConfig["leave-requests"];
-          config.rows.push(mapDbRowToLeaveRequestRow(created));
-          config.values[0] = String(config.rows.length);
-          showToast(`Leave request submitted.`);
+        if (editingLeaveRequestId) {
+          if (mode === "api" && api) {
+            await api.leaveRequests.update(editingLeaveRequestId, record);
+          } else {
+            const lrCfg = pageConfig["leave-requests"];
+            const idx = lrCfg.rows.findIndex(r => String(r[0]).replace(/^LR-?/i, "") === String(editingLeaveRequestId));
+            if (idx >= 0) {
+              lrCfg.rows[idx] = mapDbRowToLeaveRequestRow({ ...record, request_id: editingLeaveRequestId });
+            }
+          }
+          showToast(`Leave request #${editingLeaveRequestId} updated.`);
         } else {
-          const config = pageConfig["leave-requests"];
-          const nextSeq = String(config.rows.length + 1).padStart(3, "0");
-          config.rows.push([`LR-${nextSeq}`, `Emp ${record.employee_id}`, record.leave_type_id, `${record.start_date} to ${record.end_date}`, "pending"]);
-          config.values[0] = String(config.rows.length);
-          showToast(`Leave request submitted.`);
+          if (mode === "api" && api) {
+            const created = await api.leaveRequests.create(record);
+            const config = pageConfig["leave-requests"];
+            config.rows.push(mapDbRowToLeaveRequestRow(created));
+            config.values[0] = String(config.rows.length);
+            showToast(`Leave request submitted.`);
+          } else {
+            const config = pageConfig["leave-requests"];
+            const nextSeq = String(config.rows.length + 1).padStart(3, "0");
+            config.rows.push([`LR-${nextSeq}`, `Emp ${record.employee_id}`, record.leave_type_id, `${record.start_date} to ${record.end_date}`, "pending"]);
+            config.values[0] = String(config.rows.length);
+            showToast(`Leave request submitted.`);
+          }
         }
+        editingLeaveRequestId = null;
+        currentLeaveRequestRecord = null;
         await refreshModuleData("leave-requests");
         activatePage("leave-requests"); renderModule("leave-requests");
       } catch (error) { showToast(error.message || "Could not submit leave request.", "error"); }
@@ -8432,7 +8826,10 @@ const attendanceRecords = [];
 
     function mapDbLocationToSubLocation(dbRow) {
       const entityCode = dbRow.parent_entity_code || "";
-      const entityName = dbRow.parent_entity_name || dbRow.parent_entity_id || "";
+      const entityOrphaned = dbRow.parent_entity_id && !dbRow.parent_entity_name;
+      const entityName = entityOrphaned
+        ? `<span class="is-orphaned">Deleted (#${dbRow.parent_entity_id})</span>`
+        : (dbRow.parent_entity_name || "");
       return {
         id: dbRow.location_code || String(dbRow.location_id),
         dbId: dbRow.location_id,
@@ -8440,6 +8837,7 @@ const attendanceRecords = [];
         listName: dbRow.location_name,
         parent: entityName,
         parentCode: entityCode,
+        _entityOrphaned: entityOrphaned || null,
         state: dbRow.state || "Not set",
         type: locationTypeLabel(dbRow.location_type),
         status: titleCaseValue(dbRow.status),
@@ -8810,5 +9208,7 @@ const attendanceRecords = [];
       renderAttendance();
       renderLocationControl();
       updatePresentTodayKPI();
+      checkDataIntegrity();
+      updateNotificationDot();
       refreshIcons();
     })();

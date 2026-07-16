@@ -48,7 +48,7 @@
           </button>
           <div class="nav-children">
             <div class="nav-children-inner">
-              <button class="nav-child" data-page="leave-requests">Leave Requests</button>
+              <button class="nav-child" data-page="leave-requests">Leaves</button>
               <button class="nav-child" data-page="leave-type-master">Leave Type Master</button>
               <button class="nav-child" data-page="leave-policy">Leave Policy</button>
               <button class="nav-child" data-page="policy-variants">Policy Variants</button>
@@ -1293,6 +1293,7 @@
 
         <section class="module-view" id="moduleView">
           <div class="module-summary" id="moduleSummary"></div>
+          <div class="module-leave-tabs" id="moduleLeaveTabs"></div>
           <article class="card table-card">
             <div class="card-header">
               <div>
@@ -1494,6 +1495,11 @@
           <div class="location-form-grid">
             <label class="location-form-field"><span class="location-form-label">Employee <span class="field-state required">Required</span></span><select data-leave-request-field="employee_id" id="leaveRequestEmployee" required></select></label>
             <label class="location-form-field"><span class="location-form-label">Leave Type <span class="field-state required">Required</span></span><select data-leave-request-field="leave_type_id" id="leaveRequestType" required></select></label>
+            <label class="location-form-field"><span class="location-form-label">Status <span class="field-state required">Required</span></span><select data-leave-request-field="status" id="leaveRequestStatus" required>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select></label>
             <label class="location-form-field"><span class="location-form-label">Start Date <span class="field-state required">Required</span></span><input data-leave-request-field="start_date" type="date" required></label>
             <label class="location-form-field"><span class="location-form-label">End Date <span class="field-state required">Required</span></span><input data-leave-request-field="end_date" type="date" required></label>
             <label class="location-form-field"><span class="location-form-label">Duration (Days)</span><input data-leave-request-field="duration_days" type="number" min="0.5" step="0.5"></label>

@@ -1,4 +1,4 @@
-import { query } from "@/src/lib/db";
+import { query, getPool } from "@/src/lib/db";
 
 export async function PATCH(request, { params }) {
   try {
@@ -80,11 +80,42 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    const result = await query(`DELETE FROM sub_location WHERE location_id = $1 RETURNING *`, [Number(id)]);
-    if (result.rows.length === 0) {
-      return Response.json({ message: "Location not found." }, { status: 404 });
+    const client = await getPool().connect();
+    try {
+      await client.query("BEGIN");
+
+      const affectedEmployees = await client.query(
+        `SELECT employee_id, location_id FROM employee_master WHERE location_id = $1`, [Number(id)]
+      );
+
+      const result = await client.query(
+        `DELETE FROM sub_location WHERE location_id = $1 RETURNING *`, [Number(id)]
+      );
+      if (result.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return Response.json({ message: "Location not found." }, { status: 404 });
+      }
+
+      for (const emp of affectedEmployees.rows) {
+        await client.query(
+          `UPDATE employee_master SET previous_location_id = $1 WHERE employee_id = $2`,
+          [emp.location_id, emp.employee_id]
+        );
+      }
+
+      await client.query("COMMIT");
+      return Response.json({
+        message: "Location deleted.",
+        affected: {
+          employees: affectedEmployees.rows.length
+        }
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
     }
-    return Response.json({ message: "Location deleted.", record: result.rows[0] });
   } catch (error) {
     return Response.json({ message: error.message }, { status: 500 });
   }

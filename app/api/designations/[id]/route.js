@@ -61,11 +61,17 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
+    const empResult = await query(
+      `SELECT COUNT(*) AS cnt FROM employee_master WHERE designation_id = $1`, [Number(id)]
+    );
     const result = await query(`DELETE FROM designation_master WHERE designation_id = $1 RETURNING *`, [Number(id)]);
     if (result.rows.length === 0) {
       return Response.json({ message: "Designation not found." }, { status: 404 });
     }
-    return Response.json({ message: "Designation deleted.", record: result.rows[0] });
+    return Response.json({
+      message: "Designation deleted.",
+      affected: { employees: Number(empResult.rows[0]?.cnt || 0) }
+    });
   } catch (error) {
     return Response.json({ message: error.message }, { status: 500 });
   }

@@ -47,11 +47,17 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
+    const locResult = await query(
+      `SELECT COUNT(*) AS cnt FROM sub_location WHERE parent_entity_id = $1`, [Number(id)]
+    );
     const result = await query(`DELETE FROM parent_entity WHERE entity_id = $1 RETURNING *`, [Number(id)]);
     if (result.rows.length === 0) {
       return Response.json({ message: "Entity not found." }, { status: 404 });
     }
-    return Response.json({ message: "Entity deleted.", record: result.rows[0] });
+    return Response.json({
+      message: "Entity deleted.",
+      affected: { locations: Number(locResult.rows[0]?.cnt || 0) }
+    });
   } catch (error) {
     return Response.json({ message: error.message }, { status: 500 });
   }
